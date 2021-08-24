@@ -1,3 +1,3 @@
 # Holochain scaletests
 
-See </tests/holofuel>
+See [tests/holofuel/README.md](/tests/holofuel/)
