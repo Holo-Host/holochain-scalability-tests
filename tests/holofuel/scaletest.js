@@ -1,8 +1,12 @@
 const { expect } = require('chai')
-const { setUpHoloports, restartTrycp, installAgents } = require('./tests-setup')
+const {
+  setUpHoloports,
+  restartTrycp,
+  installAgents
+} = require('../tests-setup')
 const tryorama = require('@holochain/tryorama')
 const encodeHoloHash = require('@holo-host/cryptolib').Codec.HoloHash.encode
-const { parseCfg, presentDuration } = require('./utils')
+const { parseCfg, presentDuration } = require('../utils')
 
 describe('Holofuel DNA', async () => {
   let agents
