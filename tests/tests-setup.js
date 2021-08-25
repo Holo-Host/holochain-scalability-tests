@@ -161,6 +161,7 @@ exports.restartTrycp = async () => {
       console.log(`${hp.zerotierIp}: ✔`)
     })
   )
+  await new Promise(r => setTimeout(r, 1000));
 }
 
 exports.installAgents = async s => {
