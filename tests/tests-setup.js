@@ -19,15 +19,17 @@ const defaultTryoramaNetworkConfig = {
       proxy_config: {
         type: tryorama.ProxyConfigType.RemoteProxyClient,
         proxy_url:
-          'kitsune-proxy://nFCWLsuRC0X31UMv8cJxioL-lBRFQ74UQAsb8qL4XyM/kitsune-quic/h/192.168.0.203/p/5778/--',
-        proxy_url:
-          'kitsune-proxy://CIW6PxKxsPPlcuvUCbMcKwUpaMSmB7kLD8xyyj4mqcw/kitsune-quic/h/147.75.54.129/p/5778/--',
-        proxy_url:
-          'kitsune-proxy://CIW6PxKxsPPlcuvUCbMcKwUpaMSmB7kLD8xyyj4mqcw/kitsune-quic/h/165.22.32.11/p/5778/--',
-        proxy_url:
-          'kitsune-proxy://nFCWLsuRC0X31UMv8cJxioL-lBRFQ74UQAsb8qL4XyM/kitsune-quic/h/192.168.0.203/p/33679/--',
-        proxy_url:
-          'kitsune-proxy://f3gH2VMkJ4qvZJOXx0ccL_Zo5n-s_CnBjSzAsEHHDCA/kitsune-quic/h/164.90.142.115/p/10000/--' // p1
+          'kitsune-proxy://SYVd4CF3BdJ4DS7KwLLgeU3_DbHoZ34Y-qroZ79DOs8/kitsune-quic/h/165.22.32.11/p/5779/--'
+        // proxy_url:
+        //   'kitsune-proxy://nFCWLsuRC0X31UMv8cJxioL-lBRFQ74UQAsb8qL4XyM/kitsune-quic/h/192.168.0.203/p/5778/--',
+        // proxy_url:
+        //   'kitsune-proxy://CIW6PxKxsPPlcuvUCbMcKwUpaMSmB7kLD8xyyj4mqcw/kitsune-quic/h/147.75.54.129/p/5778/--',
+        // proxy_url:
+        //   'kitsune-proxy://CIW6PxKxsPPlcuvUCbMcKwUpaMSmB7kLD8xyyj4mqcw/kitsune-quic/h/165.22.32.11/p/5778/--',
+        // proxy_url:
+        //   'kitsune-proxy://nFCWLsuRC0X31UMv8cJxioL-lBRFQ74UQAsb8qL4XyM/kitsune-quic/h/192.168.0.203/p/33679/--',
+        // proxy_url:
+        //   'kitsune-proxy://f3gH2VMkJ4qvZJOXx0ccL_Zo5n-s_CnBjSzAsEHHDCA/kitsune-quic/h/164.90.142.115/p/10000/--' // p1
       }
     }
   ],
@@ -172,15 +174,13 @@ exports.installAgents = async s => {
   )
   const players = playersPerHp.flat()
 
-  const allNodesShared = s.shareAllNodes(players)
-
   const happsPerPlayer = await Promise.all(
     players.map((player, i) => installHappsForPlayer(player, i, cfg))
   )
 
   const happs = happsPerPlayer.flat()
 
-  await allNodesShared
+  await s.shareAllNodes(players)
   console.log('Installing agents: ✔')
   return happs
 }
