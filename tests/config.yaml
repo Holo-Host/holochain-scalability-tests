@@ -1,7 +1,7 @@
 --- # Test configuration
   holoportChannel: "916"
   conductorsPerHoloport: 1
-  agentsPerConductor: 3
+  agentsPerConductor: 2
   promisesPerAgentPerPeer: 1
   dna: { path: '../holofuel-rsm/holofuel.dna' } # Note: It's possible to pass { url: '...' } instead.
   # disableSsh: true
@@ -16,8 +16,13 @@
       error: false
       errorMessage: null
       timeToGossip: null
-    - name: "rkbpxayrx3b9mrslvp26oz88rw36wzltxaklm00czl5u5mx1w"
-      zerotierIp: "172.26.235.20"
+    - name: "idc0p6g8tm27exqoknkno4molls24mik3bu35jd6bswclutgb"
+      zerotierIp: "172.26.205.66"
       error: false
       errorMessage: null
       timeToGossip: null
+    # - name: "rkbpxayrx3b9mrslvp26oz88rw36wzltxaklm00czl5u5mx1w"
+    #   zerotierIp: "172.26.235.20"
+    #   error: false
+    #   errorMessage: null
+    #   timeToGossip: null

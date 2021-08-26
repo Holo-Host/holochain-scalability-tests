@@ -18,3 +18,5 @@ exports.presentDuration = ms => {
   const s = twoDigits(Math.floor(ms / second) % 60)
   return `${h}:${m}:${s}.${threeDigits(ms)}`
 }
+
+exports.wait = ms => new Promise(resolve => setTimeout(resolve, ms))

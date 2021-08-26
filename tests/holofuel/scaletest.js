@@ -6,8 +6,8 @@ const {
 } = require('../tests-setup')
 const tryorama = require('@holochain/tryorama')
 const encodeHoloHash = require('@holo-host/cryptolib').Codec.HoloHash.encode
-const { parseCfg, presentDuration } = require('../utils')
-const { isEqual, sum, mean } = require('lodash')
+const { parseCfg, presentDuration, wait } = require('../utils')
+const { sum, mean } = require('lodash')
 
 describe('Holofuel DNA', async () => {
   let agents
@@ -41,7 +41,7 @@ describe('Holofuel DNA', async () => {
 
   afterEach(() => endScenario())
 
-  it('can make a zome call on each agent', async () => {
+  it.skip('can make a zome call on each agent', async () => {
     await Promise.all(
       agents.map(async agent => {
         expect(
@@ -61,11 +61,14 @@ describe('Holofuel DNA', async () => {
   it('reaches consistency after many agents all send to every other agent concurrently', async () => {
     const cfg = parseCfg()
 
-    const currentlyAccepting = {}
-    let totalSent = 0
-    let agentConsistencyMs = agents.map(() => 0)
+    let totalAccepted = 0
+    const agentConsistencyMs = agents.map(() => 0)
     const totalExpected =
       agents.length * (agents.length - 1) * cfg.promisesPerAgentPerPeer
+
+    const transactionsFromAgent = {}
+    const transactionsToAgent = {}
+    const transactionStatus = {}
 
     const sendAllPeers = async (agent, agentIdx) => {
       for (
@@ -91,15 +94,27 @@ describe('Holofuel DNA', async () => {
           const agentConsistencyDelay = 5_000
           while (!foundAgent) {
             try {
-              await agent.cells[0].call('transactor', 'create_promise', payload)
+              const transaction = await agent.cells[0].call('transactor', 'create_promise', payload)
+              transactionStatus[transaction.id] === 'PENDING'
               foundAgent = true
+              const agentKey = encodeHoloHash('agent', Buffer.from(agent.agent))
+              const counterpartyKey = encodeHoloHash('agent', Buffer.from(counterparty.agent))
+              if (transactionsFromAgent[agentKey]) {
+                transactionsFromAgent[agentKey]++
+              } else {
+                transactionsFromAgent[agentKey] = 1
+              }
+
+              if (transactionsToAgent[counterpartyKey]) {
+                transactionsToAgent[counterpartyKey]++
+              } else {
+                transactionsToAgent[counterpartyKey] = 1
+              }
             } catch (e) {
               if (String(e).includes('is not held')) {
                 // This error means that the recipient is not yet present in our DHT shard.
                 agentConsistencyMs[agentIdx] += agentConsistencyDelay
-                await new Promise(resolve =>
-                  setTimeout(resolve, agentConsistencyDelay)
-                )
+                await wait(agentConsistencyDelay)
               } else {
                 console.error('create_promise error', e, 'payload', payload)
                 throw e
@@ -110,29 +125,22 @@ describe('Holofuel DNA', async () => {
       }
     }
 
-    const incrementCompleted = () => {
-      const currentTenth = Math.floor((totalSent * 10) / totalExpected)
-      totalSent += 1
-      const newTenth = Math.floor((totalSent * 10) / totalExpected)
+    const incrementAccepted = () => {
+      const currentTenth = Math.floor((totalAccepted * 10) / totalExpected)
+      totalAccepted += 1
+      const newTenth = Math.floor((totalAccepted * 10) / totalExpected)
       if (newTenth > currentTenth) {
-        console.log(`${totalSent}/${totalExpected} ✔`)
+        console.log(`${totalAccepted}/${totalExpected} ✔`)
       }
     }
 
     const accept = async (receiver, id) => {
-      if (currentlyAccepting[id]) {
-        return
-      }
-      currentlyAccepting[id] = true
-      try {
-        await receiver.cells[0].call('transactor', 'accept_transaction', {
-          address: id,
-          timestamp: [0, 0]
-        })
-        incrementCompleted()
-      } finally {
-        delete currentlyAccepting[id]
-      }
+      await receiver.cells[0].call('transactor', 'accept_transaction', {
+        address: id,
+        timestamp: [0, 0]
+      })
+      transactionStatus[id] = 'Accepted'
+      incrementAccepted()
     }
 
     const tryAcceptAll = async receiver => {
@@ -147,6 +155,8 @@ describe('Holofuel DNA', async () => {
           await accept(receiver, promise.id)
         } catch (e) {}
       }
+
+      return promise_actionable.length
     }
 
     const getFinalState = async agent => {
@@ -166,14 +176,36 @@ describe('Holofuel DNA', async () => {
       }
     }
 
-    const getCompleted = async agent =>
-      (
-        await agent.cells[0].call(
-          'transactor',
-          'get_completed_transactions',
-          null
-        )
-      ).length
+    const numCompleted = async agent => {
+      const completedTransactions = await agent.cells[0].call(
+        'transactor',
+        'get_completed_transactions',
+        null
+      )
+      completedTransactions.forEach(completedTransaction => {
+        transactionStatus[completedTransaction.id] = 'Completed'
+      })
+
+      return completedTransactions.length
+    }
+
+    const numPending = async agent => {
+      const result = await agent.cells[0].call(
+        'transactor',
+        'get_pending_transactions',
+        null
+      )
+      return result.invoice_pending.length + result.promise_pending.length
+    }
+
+    const numActionable = async agent => {
+      const result = await agent.cells[0].call(
+        'transactor',
+        'get_actionable_transactions',
+        null
+      )
+      return result.invoice_actionable.length + result.promise_actionable.length
+    }
 
     const expectedFinalState = {
       actionable: {
@@ -195,25 +227,49 @@ describe('Holofuel DNA', async () => {
     await Promise.all(agents.map(sendAllPeers))
     const finishSend = Date.now()
 
-    while (totalSent < totalExpected) {
-      await Promise.all(agents.map(tryAcceptAll))
+    console.log('Finished Sending ✔')
+    console.log('Transactions from agent', transactionsFromAgent,  '✔')
+    console.log('Transactions to agent', transactionsToAgent,  '✔')
+
+    const totalActuallyExpect = sum(Object.values(transactionsToAgent))
+
+    let totalActionable = 0
+
+    while (totalAccepted < totalActuallyExpect || totalActionable > 0) {
+      const actionablePerAgent = await Promise.all(agents.map(tryAcceptAll))
+      totalActionable = sum(actionablePerAgent)
     }
     const finishAccept = Date.now()
 
+    console.log('Finished Accepting ✔')
+    console.log('Transaction status ✔', transactionStatus)
+
     let totalCompleted = 0
-    while (totalCompleted < totalExpected * 2) {
-      totalCompleted = sum(await Promise.all(agents.map(getCompleted)))
+    let totalPending = 0
+    while ((totalCompleted < totalActuallyExpect * 2) || totalPending > 0) {
+      const completedPerAgent = await Promise.all(agents.map(numCompleted))
+      const pendingPerAgent = await Promise.all(agents.map(numPending))
+      const actionablePerAgent = await Promise.all(agents.map(numActionable))
+      totalCompleted = sum(completedPerAgent)
+      totalPending = sum(pendingPerAgent)
+      totalActionable = sum(actionablePerAgent)
+      console.log(`completedPerAgent ${completedPerAgent} ✔`)
+      console.log(`totalCompleted ${totalCompleted}/${totalActuallyExpect * 2} ✔`)
+      console.log(`totalPending ${totalPending} ✔`)
+      console.log(`totalActionable ${totalActionable} ✔`)
+      console.log('Transaction status ✔', transactionStatus)
+      await wait(5_000)
     }
 
-    expect(await Promise.all(agents.map(getFinalState))).to.deep.equal(
-      agents.map(() => expectedFinalState)
-    )
+    const finishedAll = Date.now()
+
+    console.log('All complete ✔')
 
     console.log(`
 Total Holoports\t${cfg.holoports.length}
 Total Conductors\t${cfg.holoports.length * cfg.conductorsPerHoloport}
 Total Agents\t${agents.length}
-Total Promises Created\t${totalSent}
+Total Promises Created\t${totalAccepted}
 Time Waiting for Agent Consistency (Min)\t${presentDuration(
       Math.min(...agentConsistencyMs)
     )}
@@ -226,6 +282,11 @@ Time Waiting for Agent Consistency (Avg)\t${presentDuration(
 Time Taken to Create Promises (incl. Agent Consistency)\t${presentDuration(
       finishSend - start
     )}
-Time Taken to Accept Promises\t${presentDuration(finishAccept - finishSend)}`)
+Time Taken to Accept Promises\t${presentDuration(finishAccept - finishSend)}
+Time Waiting for Transactions to be Completed\t${presentDuration(finishedAll - finishAccept)}`)
   })
+
+  expect(await Promise.all(agents.map(getFinalState))).to.deep.equal(
+    agents.map(() => expectedFinalState)
+  )
 })
