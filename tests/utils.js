@@ -1,5 +1,6 @@
 const fs = require('fs')
 const YAML = require('yaml')
+const encodeHoloHash = require('@holo-host/cryptolib').Codec.HoloHash.encode
 
 exports.parseCfg = () => {
   let fileContents = fs.readFileSync('./tests/config.yaml', 'utf-8')
@@ -20,3 +21,5 @@ exports.presentDuration = ms => {
 }
 
 exports.wait = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+exports.base64AgentId = tryoramaAgent => encodeHoloHash('agent', Buffer.from(tryoramaAgent.agent))
