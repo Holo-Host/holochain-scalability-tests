@@ -3,6 +3,8 @@
   conductorsPerHoloport: 1
   agentsPerConductor: 4
   promisesPerAgentPerPeer: 1
+  numTransactions: 24
+  fractionOffline: 0.5
   dna: { path: '../holofuel-rsm/holofuel.dna' } # Note: It's possible to pass { url: '...' } instead.
   # disableSsh: true
   holoports:      # list of holoports participating in test

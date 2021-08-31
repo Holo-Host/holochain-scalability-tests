@@ -6,52 +6,17 @@ const {
 } = require('../tests-setup')
 const tryorama = require('@holochain/tryorama')
 const { parseCfg, presentDuration, wait, base64AgentId } = require('../utils')
+const {
+  resetConsistencyTimes,
+  agentConsistencyMs,
+  sendTransaction,
+  acceptTransaction,
+  numCompleted,
+  numPending,
+  numActionable,
+  getFinalState
+} = require('./transactions')
 const { sum, mean } = require('lodash')
-
-const numCompleted = async agent => {
-  const completedTransactions = await agent.cells[0].call(
-    'transactor',
-    'get_completed_transactions',
-    null
-  )
-
-  return completedTransactions.length
-}
-
-const numPending = async agent => {
-  const result = await agent.cells[0].call(
-    'transactor',
-    'get_pending_transactions',
-    null
-  )
-  return result.invoice_pending.length + result.promise_pending.length
-}
-
-const numActionable = async agent => {
-  const result = await agent.cells[0].call(
-    'transactor',
-    'get_actionable_transactions',
-    null
-  )
-  return result.invoice_actionable.length + result.promise_actionable.length
-}
-
-const getFinalState = async agent => {
-  const [actionable, completed, pending, ledger] = await Promise.all(
-    [
-      'get_actionable_transactions',
-      'get_completed_transactions',
-      'get_pending_transactions',
-      'get_ledger'
-    ].map(fn => agent.cells[0].call('transactor', fn, null))
-  )
-  return {
-    actionable,
-    completed: completed.length,
-    pending,
-    balance: ledger.balance
-  }
-}
 
 describe('Holofuel DNA', async () => {
   let agents
@@ -59,9 +24,11 @@ describe('Holofuel DNA', async () => {
   let s
   let endScenario
   let results = []
+  let cfg
 
   before(async () => {
     await setUpHoloports()
+    cfg = parseCfg()
   })
 
   beforeEach(async () => {
@@ -85,6 +52,7 @@ describe('Holofuel DNA', async () => {
     const installedAgents = await installAgents(s)
     agents = installedAgents.agents
     players = installedAgents.players
+    resetConsistencyTimes(agents)
   })
 
   afterEach(() => endScenario())
@@ -115,8 +83,6 @@ describe('Holofuel DNA', async () => {
   })
 
   it('reaches consistency after many agents all send to every other agent concurrently', async () => {
-    const cfg = parseCfg()
-
     let totalAccepted = 0
     const agentConsistencyMs = agents.map(() => 0)
     const totalExpected =
@@ -282,38 +248,9 @@ describe('Holofuel DNA', async () => {
   })
 
   it('measures timing for random p2p transactions with parallel acceptance', async () => {
-    let mockTimestamp = 0
-
-    const numTransactions = 24
+    const { numTransactions } = cfg
 
     let totalAccepted = 0
-    const agentConsistencyMs = Object.fromEntries(agents.map(agent => [base64AgentId(agent), 0]))
-
-    const sendTransaction = async (sender, receiver) => {
-      const payload = {
-        receiver: base64AgentId(receiver),
-        amount: '1',
-        timestamp: [mockTimestamp++, 0],
-        expiration_date: [Number.MAX_SAFE_INTEGER, 0]
-      }
-
-      const agentConsistencyDelay = 5_000
-      while (true) {
-        try {
-          const transaction = await sender.cells[0].call('transactor', 'create_promise', payload)
-          return transaction
-        } catch (e) {
-          if (String(e).includes('is not held')) {
-            // This error means that the recipient is not yet present in our DHT shard.
-            agentConsistencyMs[base64AgentId(sender)] += agentConsistencyDelay
-            await wait(agentConsistencyDelay)
-          } else {
-            console.error('create_promise error', e, 'payload', payload)
-            throw e
-          }
-        }
-      }
-    }
 
     const incrementAccepted = () => {
       const currentTenth = Math.floor((totalAccepted * 10) / numTransactions)
@@ -321,33 +258,6 @@ describe('Holofuel DNA', async () => {
       const newTenth = Math.floor((totalAccepted * 10) / numTransactions)
       if (newTenth > currentTenth) {
         console.log(`${totalAccepted}/${numTransactions} ✔`)
-      }
-    }
-
-    const acceptTransaction = async (receiver, transaction) => {
-      const payload = {
-        address: transaction.id,
-        timestamp: [mockTimestamp++, 0]
-      }
-
-      const agentConsistencyDelay = 5_000
-      while (true) {
-        try {
-          const transaction = await receiver.cells[0].call('transactor', 'accept_transaction', payload)
-          incrementAccepted()
-          return transaction
-        } catch (e) {
-          if (String(e).includes('not in your actionable list') || String(e).includes('Invalid Address:') || String(e).includes('Link does not exist')) {
-            // This error means that the transaction is not yet present in our DHT shard.
-            console.error(e)
-            console.error('agent "final" state', await getFinalState(receiver))
-            agentConsistencyMs[base64AgentId(receiver)] += agentConsistencyDelay
-            await wait(agentConsistencyDelay)
-          } else {
-            console.error('accept_transaction error', e, 'payload', payload)
-            throw e
-          }
-        }
       }
     }
 
@@ -359,6 +269,7 @@ describe('Holofuel DNA', async () => {
       const transaction = await sendTransaction(sender, receiver)
 
       await acceptTransaction(receiver, transaction)
+      incrementAccepted()
     }))
 
     const finishedSending = Date.now()
@@ -417,38 +328,9 @@ describe('Holofuel DNA', async () => {
   })
 
   it('measures timing for random p2p transactions with serial acceptance', async () => {
-    let mockTimestamp = 0
-
-    const numTransactions = 24
+    const { numTransactions } = cfg
 
     let totalAccepted = 0
-    const agentConsistencyMs = Object.fromEntries(agents.map(agent => [base64AgentId(agent), 0]))
-
-    const sendTransaction = async (sender, receiver) => {
-      const payload = {
-        receiver: base64AgentId(receiver),
-        amount: '1',
-        timestamp: [mockTimestamp++, 0],
-        expiration_date: [Number.MAX_SAFE_INTEGER, 0]
-      }
-
-      const agentConsistencyDelay = 5_000
-      while (true) {
-        try {
-          const transaction = await sender.cells[0].call('transactor', 'create_promise', payload)
-          return transaction
-        } catch (e) {
-          if (String(e).includes('is not held')) {
-            // This error means that the recipient is not yet present in our DHT shard.
-            agentConsistencyMs[base64AgentId(sender)] += agentConsistencyDelay
-            await wait(agentConsistencyDelay)
-          } else {
-            console.error('create_promise error', e, 'payload', payload)
-            throw e
-          }
-        }
-      }
-    }
 
     const incrementAccepted = () => {
       const currentTenth = Math.floor((totalAccepted * 10) / numTransactions)
@@ -456,33 +338,6 @@ describe('Holofuel DNA', async () => {
       const newTenth = Math.floor((totalAccepted * 10) / numTransactions)
       if (newTenth > currentTenth) {
         console.log(`${totalAccepted}/${numTransactions} ✔`)
-      }
-    }
-
-    const acceptTransaction = async (receiver, transaction) => {
-      const payload = {
-        address: transaction.id,
-        timestamp: [mockTimestamp++, 0]
-      }
-
-      const agentConsistencyDelay = 5_000
-      while (true) {
-        try {
-          const transaction = await receiver.cells[0].call('transactor', 'accept_transaction', payload)
-          incrementAccepted()
-          return transaction
-        } catch (e) {
-          if (String(e).includes('not in your actionable list') || String(e).includes('Invalid Address:') || String(e).includes('Link does not exist')) {
-            // This error means that the transaction is not yet present in our DHT shard.
-            console.error(e)
-            console.error('agent "final" state', await getFinalState(receiver))
-            agentConsistencyMs[base64AgentId(receiver)] += agentConsistencyDelay
-            await wait(agentConsistencyDelay)
-          } else {
-            console.error('accept_transaction error', e, 'payload', payload)
-            throw e
-          }
-        }
       }
     }
 
@@ -507,6 +362,7 @@ describe('Holofuel DNA', async () => {
     for (let i = 0; i < transactions.length; i++) {
       const { receiver, transaction } = transactions[i]
       await acceptTransaction(receiver, transaction)
+      incrementAccepted()
     }
 
     const finishedAccepting = Date.now()
@@ -570,84 +426,18 @@ describe('Holofuel DNA', async () => {
   it('measures timing for random p2p transactions with serial acceptance and some senders offline', async () => {
     const getPlayerIdx = appId => Number(appId.match(/^p([0-9]*)a/)[1])
 
-    let mockTimestamp = 0
-
-    const fractionOfflineSenders = '0.5'
-
-    const numTransactions = 24
+    const { numTransactions, fractionOffline } = cfg
+    const activationDelay = 2_000
 
     const numSenders = Math.floor(agents.length / 2)
     const senders = agents.slice(0, numSenders)
     const receivers = agents.slice(numSenders)
 
-    let totalAccepted = 0
-    const agentConsistencyMs = Object.fromEntries(agents.map(agent => [base64AgentId(agent), 0]))
-
-    const sendTransaction = async (sender, receiver) => {
-      const payload = {
-        receiver: base64AgentId(receiver),
-        amount: '1',
-        timestamp: [mockTimestamp++, 0],
-        expiration_date: [Number.MAX_SAFE_INTEGER, 0]
-      }
-
-      const agentConsistencyDelay = 5_000
-      while (true) {
-        try {
-          const transaction = await sender.cells[0].call('transactor', 'create_promise', payload)
-          return transaction
-        } catch (e) {
-          if (String(e).includes('is not held')) {
-            // This error means that the recipient is not yet present in our DHT shard.
-            agentConsistencyMs[base64AgentId(sender)] += agentConsistencyDelay
-            await wait(agentConsistencyDelay)
-          } else {
-            console.error('create_promise error', e, 'payload', payload)
-            throw e
-          }
-        }
-      }
-    }
-
-    const incrementAccepted = () => {
-      const currentTenth = Math.floor((totalAccepted * 10) / numTransactions)
-      totalAccepted += 1
-      const newTenth = Math.floor((totalAccepted * 10) / numTransactions)
-      if (newTenth > currentTenth) {
-        console.log(`${totalAccepted}/${numTransactions} ✔`)
-      }
-    }
-
-    const acceptTransaction = async (receiver, transaction) => {
-      const payload = {
-        address: transaction.id,
-        timestamp: [mockTimestamp++, 0]
-      }
-
-      const agentConsistencyDelay = 5_000
-      while (true) {
-        try {
-          const transaction = await receiver.cells[0].call('transactor', 'accept_transaction', payload)
-          incrementAccepted()
-          return transaction
-        } catch (e) {
-          if (String(e).includes('not in your actionable list') || String(e).includes('Invalid Address:') || String(e).includes('Link does not exist')) {
-            // This error means that the transaction is not yet present in our DHT shard.
-            console.error(e)
-            console.error('agent "final" state', await getFinalState(receiver))
-            agentConsistencyMs[base64AgentId(receiver)] += agentConsistencyDelay
-            await wait(agentConsistencyDelay)
-          } else {
-            console.error('accept_transaction error', e, 'payload', payload)
-            throw e
-          }
-        }
-      }
-    }
-
     const timeStarted = Date.now()
 
     const transactions = []
+
+    let totalAccepted
 
     await Promise.all(Array.from({ length: numTransactions }, async () => {
       const senderIdx = Math.floor(Math.random() * senders.length)
@@ -666,21 +456,31 @@ describe('Holofuel DNA', async () => {
 
     console.log('Finished Sending ✔')
 
-    const numOffline = Math.ceil(numSenders * fractionOfflineSenders)
+    const numOffline = Math.ceil(numSenders * fractionOffline)
 
     for (let i = 0; i < numOffline; i++) {
       const sender = senders[i]
       const { hAppId } = sender
       const playerIdx = getPlayerIdx(hAppId)
       const player = players[playerIdx]
-      const result = await player.adminWs().deactivateApp({
+      await player.adminWs().deactivateApp({
         installed_app_id: hAppId
       })
     }
 
+    const incrementAccepted = () => {
+      const currentTenth = Math.floor((totalAccepted * 10) / numTransactions)
+      totalAccepted += 1
+      const newTenth = Math.floor((totalAccepted * 10) / numTransactions)
+      if (newTenth > currentTenth) {
+        console.log(`${totalAccepted}/${numTransactions} ✔`)
+      }
+    }
+
     for (let i = 0; i < transactions.length; i++) {
       const { receiver, transaction, senderIdx } = transactions[i]
-      const result = await acceptTransaction(receiver, transaction)
+      const result = await acceptTransaction(receiver, transaction, numTransactions)
+      incrementAccepted()
       if (senderIdx < numOffline) {
         expect(result.status).deep.equal({ Accepted: null })
       } else {
@@ -692,14 +492,14 @@ describe('Holofuel DNA', async () => {
 
     console.log('Finished Accepting ✔')
 
-    await wait(2_000)
+    await wait(activationDelay)
 
     for (let i = 0; i < numOffline; i++) {
       const sender = senders[i]
       const { hAppId } = sender
       const playerIdx = getPlayerIdx(hAppId)
       const player = players[playerIdx]
-      const result = await player.adminWs().activateApp({
+      await player.adminWs().activateApp({
         installed_app_id: hAppId
       })
     }
