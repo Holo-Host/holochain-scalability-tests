@@ -1,6 +1,7 @@
 const { wait, base64AgentId } = require('../utils')
 
 let agentConsistencyMs = {}
+let mockTimestamp = 0
 
 const resetConsistencyTimes = agents => {
   for (var agentKey in agentConsistencyMs){
