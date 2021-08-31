@@ -188,27 +188,31 @@ exports.installAgents = async s => {
 const installHappsForPlayer = async (
   player,
   playerIdx,
-  { agentsPerConductor: count, dna }
+  { agentsPerConductor: count, dnas: cfgDnas }
 ) => {
-  const dnaHash = await player.registerDna(dna, null, {
-    holo_agent_override:
-      'uhCAkRHEsXSAebzKJtPsLY1XcNePAFIieFBtz2ATanlokxnSC1Kkz',
-    skip_proof: false
-  })
+  let dnas = []
+  for (let dna in cfgDnas) {
+    const dnaHash = await player.registerDna(dna.uri, null, {
+      holo_agent_override:
+        'uhCAkRHEsXSAebzKJtPsLY1XcNePAFIieFBtz2ATanlokxnSC1Kkz',
+      skip_proof: false
+    })
+    dnas.push({
+      nick: dna.nick,
+      hash: dnaHash,
+      membrane_proof: null
+    })
+  }
+
   // Must be sequential due to a bug in holochain
   const result = []
   for (let agentIdx = 0; agentIdx < count; agentIdx++) {
     const agent_key = await player.adminWs().generateAgentPubKey()
-    const dnas = [
-      {
-        hash: dnaHash,
-        nick: 'holofuel',
-        membrane_proof: Buffer.from(
-          memProofJSON[`${playerIdx * count + agentIdx}@holo.host`],
-          'base64'
-        ) // Currently hardcoded since we don't have an array of unique membrane proofs
-      }
-    ]
+    // Currently hardcode mem proof since we don't have an array of unique ones
+    dnas.map(dna => dna.membrane_proof = Buffer.from(
+      memProofJSON[`${playerIdx * count + agentIdx}@holo.host`],
+      'base64'
+    ))
     const happ = await player._installHapp({
       agent_key,
       dnas,

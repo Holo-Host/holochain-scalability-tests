@@ -3,7 +3,9 @@
   conductorsPerHoloport: 1
   agentsPerConductor: 3
   promisesPerAgentPerPeer: 1
-  dna: { path: '../holofuel-rsm/holofuel.dna' } # Note: It's possible to pass { url: '...' } instead.
+  dnas:
+    # Note: It's possible to pass { url: '...' } instead of path for uri.
+    - { nick: 'holofuel', uri: { path: '../holofuel-rsm/holofuel.dna' }
   # disableSsh: true
   holoports:      # list of holoports participating in test
     # - name: "3mxb6dep80b24vwpdkyas7l8s7jg373d27kbbi61tavegtlfv0"
