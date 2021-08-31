@@ -21,6 +21,6 @@ cd ../holochain-scalability-tests
 yarn add ../tryorama
 ```
 
-Pick a version of holofuel that uses the test-only membrane proof authority (instead of the official one).
-
 Either use a URL for your holofuel DNA or build it locally.
+
+FOR REPRODUCING MULTI-HP ISSUE: use `actioned-v101.alpha0`
