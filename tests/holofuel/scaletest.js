@@ -82,7 +82,9 @@ describe('Holofuel DNA', async () => {
     )
   })
 
-  it('reaches consistency after many agents all send to every other agent concurrently', async () => {
+  it.only('reaches consistency after many agents all send to every other agent concurrently', async () => {
+    let mockTimestamp = 0
+
     let totalAccepted = 0
     const agentConsistencyMs = agents.map(() => 0)
     const totalExpected =
@@ -104,7 +106,7 @@ describe('Holofuel DNA', async () => {
           const payload = {
             receiver: base64AgentId(counterparty),
             amount: '1',
-            timestamp: [0, 0],
+            timestamp: [mockTimestamp++, 0],
             expiration_date: [Number.MAX_SAFE_INTEGER, 0]
           }
 
@@ -196,7 +198,7 @@ describe('Holofuel DNA', async () => {
 
     let totalCompleted = 0
     let totalPending = 0
-    while ((totalCompleted < totalExpected * 2) || totalPending > 0) {
+    while (totalCompleted < totalExpected * 2 || totalPending > 0) {
       const completedPerAgent = await Promise.all(agents.map(numCompleted))
       const pendingPerAgent = await Promise.all(agents.map(numPending))
       const actionablePerAgent = await Promise.all(agents.map(numActionable))
@@ -218,7 +220,8 @@ describe('Holofuel DNA', async () => {
     console.log('All complete ✔')
 
     results.push({
-      title: 'reaches consistency after many agents all send to every other agent concurrently',
+      title:
+        'reaches consistency after many agents all send to every other agent concurrently',
       logs: [
         `Total Holoports\t${cfg.holoports.length}`,
         `Total Conductors\t${cfg.holoports.length * cfg.conductorsPerHoloport}`,
@@ -236,15 +239,17 @@ describe('Holofuel DNA', async () => {
         `Time Taken to Create Promises (incl. Agent Consistency)\t${presentDuration(
           finishSend - start
         )}`,
-        `Time Taken to Accept Promises\t${presentDuration(finishAccept - finishSend)}`,
-        `Time Waiting for Transactions to be Completed\t${presentDuration(finishedAll - finishAccept)}`,
+        `Time Taken to Accept Promises\t${presentDuration(
+          finishAccept - finishSend
+        )}`,
+        `Time Waiting for Transactions to be Completed\t${presentDuration(
+          finishedAll - finishAccept
+        )}`,
         `Total time taken\t${presentDuration(finishedAll - start)}`
       ]
     })
 
-    expect(finalStates).to.deep.equal(
-      agents.map(() => expectedFinalState)
-    )
+    expect(finalStates).to.deep.equal(agents.map(() => expectedFinalState))
   })
 
   it('measures timing for random p2p transactions with parallel acceptance', async () => {
@@ -263,14 +268,18 @@ describe('Holofuel DNA', async () => {
 
     const timeStarted = Date.now()
 
-    await Promise.all(Array.from({ length: numTransactions }, async () => {
-      const sender = agents[Math.floor(Math.random() * agents.length)]
-      const receiver = agents.filter(agent => base64AgentId(agent) !== base64AgentId(sender))[Math.floor(Math.random() * (agents.length - 1))]
-      const transaction = await sendTransaction(sender, receiver)
+    await Promise.all(
+      Array.from({ length: numTransactions }, async () => {
+        const sender = agents[Math.floor(Math.random() * agents.length)]
+        const receiver = agents.filter(
+          agent => base64AgentId(agent) !== base64AgentId(sender)
+        )[Math.floor(Math.random() * (agents.length - 1))]
+        const transaction = await sendTransaction(sender, receiver)
 
-      await acceptTransaction(receiver, transaction)
-      incrementAccepted()
-    }))
+        await acceptTransaction(receiver, transaction)
+        incrementAccepted()
+      })
+    )
 
     const finishedSending = Date.now()
 
@@ -279,7 +288,7 @@ describe('Holofuel DNA', async () => {
     let totalActionable = 0
     let totalCompleted = 0
     let totalPending = 0
-    while ((totalCompleted < numTransactions * 2) || totalPending > 0) {
+    while (totalCompleted < numTransactions * 2 || totalPending > 0) {
       const completedPerAgent = await Promise.all(agents.map(numCompleted))
       const pendingPerAgent = await Promise.all(agents.map(numPending))
       const actionablePerAgent = await Promise.all(agents.map(numActionable))
@@ -300,31 +309,35 @@ describe('Holofuel DNA', async () => {
     // this is separated from the expects so that the report is the last thing in the logs
     const finalStates = await Promise.all(agents.map(getFinalState))
 
-
     results.push({
-      title: 'measures timing for random p2p transactions with parallel acceptance',
+      title:
+        'measures timing for random p2p transactions with parallel acceptance',
       logs: [
         `Total Agents\t${agents.length}`,
         `Total Promises Created\t${numTransactions}`,
         `Time Waiting for Agent Consistency (Min)\t${presentDuration(
-              Math.min(...Object.values(agentConsistencyMs))
-            )}`,
+          Math.min(...Object.values(agentConsistencyMs))
+        )}`,
         `Time Waiting for Agent Consistency (Max)\t${presentDuration(
-              Math.max(...Object.values(agentConsistencyMs))
-            )}`,
+          Math.max(...Object.values(agentConsistencyMs))
+        )}`,
         `Time Waiting for Agent Consistency (Avg)\t${presentDuration(
-              mean(Object.values(agentConsistencyMs))
-            )}`,
+          mean(Object.values(agentConsistencyMs))
+        )}`,
         `Time Taken to Create And Accept Promises (incl. Agent Consistency)\t${presentDuration(
-              finishedSending - timeStarted
-            )}`,
-        `Time Waiting for Transactions to be Completed\t${presentDuration(finishedAll - finishedSending)}`,
+          finishedSending - timeStarted
+        )}`,
+        `Time Waiting for Transactions to be Completed\t${presentDuration(
+          finishedAll - finishedSending
+        )}`,
         `Total time taken\t${presentDuration(finishedAll - timeStarted)}`
       ]
     })
 
     expect(sum(finalStates.map(({ balance }) => Number(balance)))).to.equal(0)
-    expect(sum(finalStates.map(({ completed }) => completed))).to.equal(numTransactions * 2)
+    expect(sum(finalStates.map(({ completed }) => completed))).to.equal(
+      numTransactions * 2
+    )
   })
 
   it('measures timing for random p2p transactions with serial acceptance', async () => {
@@ -345,15 +358,19 @@ describe('Holofuel DNA', async () => {
 
     const transactions = []
 
-    await Promise.all(Array.from({ length: numTransactions }, async () => {
-      const sender = agents[Math.floor(Math.random() * agents.length)]
-      const receiver = agents.filter(agent => base64AgentId(agent) !== base64AgentId(sender))[Math.floor(Math.random() * (agents.length - 1))]
-      const transaction = await sendTransaction(sender, receiver)
-      transactions.push({
-        receiver,
-        transaction
+    await Promise.all(
+      Array.from({ length: numTransactions }, async () => {
+        const sender = agents[Math.floor(Math.random() * agents.length)]
+        const receiver = agents.filter(
+          agent => base64AgentId(agent) !== base64AgentId(sender)
+        )[Math.floor(Math.random() * (agents.length - 1))]
+        const transaction = await sendTransaction(sender, receiver)
+        transactions.push({
+          receiver,
+          transaction
+        })
       })
-    }))
+    )
 
     const finishedSending = Date.now()
 
@@ -373,7 +390,7 @@ describe('Holofuel DNA', async () => {
     let totalCompleted = 0
     let totalPending = 0
 
-    while ((totalCompleted < numTransactions * 2) || totalPending > 0) {
+    while (totalCompleted < numTransactions * 2 || totalPending > 0) {
       const completedPerAgent = await Promise.all(agents.map(numCompleted))
       const pendingPerAgent = await Promise.all(agents.map(numPending))
       const actionablePerAgent = await Promise.all(agents.map(numActionable))
@@ -395,32 +412,37 @@ describe('Holofuel DNA', async () => {
     const finalStates = await Promise.all(agents.map(getFinalState))
 
     results.push({
-      title: 'measures timing for random p2p transactions with serial acceptance',
+      title:
+        'measures timing for random p2p transactions with serial acceptance',
       logs: [
         `Total Agents\t${agents.length}`,
         `Total Promises Created\t${numTransactions}`,
         `Time Waiting for Agent Consistency (Min)\t${presentDuration(
-              Math.min(...Object.values(agentConsistencyMs))
-            )}`,
+          Math.min(...Object.values(agentConsistencyMs))
+        )}`,
         `Time Waiting for Agent Consistency (Max)\t${presentDuration(
-              Math.max(...Object.values(agentConsistencyMs))
-            )}`,
+          Math.max(...Object.values(agentConsistencyMs))
+        )}`,
         `Time Waiting for Agent Consistency (Avg)\t${presentDuration(
-              mean(Object.values(agentConsistencyMs))
-            )}`,
+          mean(Object.values(agentConsistencyMs))
+        )}`,
         `Time Taken to Create Promises (incl. Agent Consistency)\t${presentDuration(
-              finishedSending - timeStarted
-            )}`,
+          finishedSending - timeStarted
+        )}`,
         `Time Taken to Accept Promises (incl. Agent Consistency)\t${presentDuration(
           finishedAccepting - finishedSending
         )}`,
-        `Time Waiting for Transactions to be Completed\t${presentDuration(finishedAll - finishedAccepting)}`,
+        `Time Waiting for Transactions to be Completed\t${presentDuration(
+          finishedAll - finishedAccepting
+        )}`,
         `Total time taken\t${presentDuration(finishedAll - timeStarted)}`
       ]
     })
 
     expect(sum(finalStates.map(({ balance }) => Number(balance)))).to.equal(0)
-    expect(sum(finalStates.map(({ completed }) => completed))).to.equal(numTransactions * 2)
+    expect(sum(finalStates.map(({ completed }) => completed))).to.equal(
+      numTransactions * 2
+    )
   })
 
   it('measures timing for random p2p transactions with serial acceptance and some senders offline', async () => {
@@ -439,18 +461,20 @@ describe('Holofuel DNA', async () => {
 
     let totalAccepted
 
-    await Promise.all(Array.from({ length: numTransactions }, async () => {
-      const senderIdx = Math.floor(Math.random() * senders.length)
-      const sender = senders[senderIdx]
-      const receiver = receivers[Math.floor(Math.random() * receivers.length)]
-      const transaction = await sendTransaction(sender, receiver)
+    await Promise.all(
+      Array.from({ length: numTransactions }, async () => {
+        const senderIdx = Math.floor(Math.random() * senders.length)
+        const sender = senders[senderIdx]
+        const receiver = receivers[Math.floor(Math.random() * receivers.length)]
+        const transaction = await sendTransaction(sender, receiver)
 
-      transactions.push({
-        receiver,
-        transaction,
-        senderIdx
+        transactions.push({
+          receiver,
+          transaction,
+          senderIdx
+        })
       })
-    }))
+    )
 
     const finishedSending = Date.now()
 
@@ -479,7 +503,11 @@ describe('Holofuel DNA', async () => {
 
     for (let i = 0; i < transactions.length; i++) {
       const { receiver, transaction, senderIdx } = transactions[i]
-      const result = await acceptTransaction(receiver, transaction, numTransactions)
+      const result = await acceptTransaction(
+        receiver,
+        transaction,
+        numTransactions
+      )
       incrementAccepted()
       if (senderIdx < numOffline) {
         expect(result.status).deep.equal({ Accepted: null })
@@ -507,7 +535,11 @@ describe('Holofuel DNA', async () => {
     const completeAllAccepted = async () => {
       for (let i = 0; i < senders.length; i++) {
         const sender = senders[i]
-        await sender.cells[0].call('transactor', 'complete_accepted_transactions', null)
+        await sender.cells[0].call(
+          'transactor',
+          'complete_accepted_transactions',
+          null
+        )
       }
     }
 
@@ -516,7 +548,7 @@ describe('Holofuel DNA', async () => {
     let totalActionable = 0
     let totalCompleted = 0
     let totalPending = 0
-    while ((totalCompleted < numTransactions * 2) || totalPending > 0) {
+    while (totalCompleted < numTransactions * 2 || totalPending > 0) {
       await completeAllAccepted()
 
       const completedPerAgent = await Promise.all(agents.map(numCompleted))
@@ -537,7 +569,8 @@ describe('Holofuel DNA', async () => {
     console.log('All complete ✔')
 
     results.push({
-      title: 'measures timing for random p2p transactions with serial acceptance and some senders offline',
+      title:
+        'measures timing for random p2p transactions with serial acceptance and some senders offline',
       logs: [
         `Total Agents\t${agents.length}`,
         `Total Promises Created\t${numTransactions}`,
@@ -556,13 +589,17 @@ describe('Holofuel DNA', async () => {
         `Time Taken to Accept Promises (incl. Agent Consistency)\t${presentDuration(
           finishedAccepting - finishedSending
         )}`,
-        `Time Waiting for Transactions to be Completed\t${presentDuration(finishedAll - finishedAccepting)}`,
+        `Time Waiting for Transactions to be Completed\t${presentDuration(
+          finishedAll - finishedAccepting
+        )}`,
         `Total time taken\t${presentDuration(finishedAll - timeStarted)}`
       ]
     })
 
     const finalStates = await Promise.all(agents.map(getFinalState))
     expect(sum(finalStates.map(({ balance }) => Number(balance)))).to.equal(0)
-    expect(sum(finalStates.map(({ completed }) => completed))).to.equal(numTransactions * 2)
+    expect(sum(finalStates.map(({ completed }) => completed))).to.equal(
+      numTransactions * 2
+    )
   })
 })
