@@ -140,6 +140,7 @@ const holoportTest = cfg => {
 
 exports.setUpHoloports = async () => {
   cfg = await resetHoloports(cfg)
+  console.log("CONFG : ", cfg)
   if (!holoportTest(cfg))
     throw new Error(
       `None of the holoports was set up successfully - aborting test`
@@ -161,7 +162,7 @@ exports.restartTrycp = async () => {
   )
 }
 
-exports.installAgents = async s => {
+exports.installAgents = async (s, testNicks) => {
   console.log(`\nInstalling agents`)
   const configs = Array.from({ length: cfg.conductorsPerHoloport }, () =>
     tryorama.Config.gen({ network: defaultTryoramaNetworkConfig })
@@ -175,7 +176,7 @@ exports.installAgents = async s => {
   const allNodesShared = s.shareAllNodes(players)
 
   const happsPerPlayer = await Promise.all(
-    players.map((player, i) => installHappsForPlayer(player, i, cfg))
+    players.map((player, i) => installHappsForPlayer(player, i, cfg, testNicks))
   )
 
   const happs = happsPerPlayer.flat()
@@ -188,20 +189,30 @@ exports.installAgents = async s => {
 const installHappsForPlayer = async (
   player,
   playerIdx,
-  { agentsPerConductor: count, dnas: cfgDnas }
+  { agentsPerConductor: count, dnas: cfgDnas },
+  testNicks = []
 ) => {
+  let testDnas = []
+  if (testNicks.length === 0) {
+    console.warn('No DNA nickname was specified for current test, all apps in config will now be installed.')
+    testDnas  = cfgDnas
+  } else {
+    testDnas = cfgDnas.filter(dna => testNicks.includes(dna.nick))
+    if (testDnas.length === 0) {
+      throw new Error('Failed to intall happ for test player - no DNA found with provided nick.')
+    }
+  }
+
+  console.log("testDnas : ", testDnas)
+
   let dnas = []
-  for (let dna in cfgDnas) {
-    const dnaHash = await player.registerDna(dna.uri, null, {
-      holo_agent_override:
-        'uhCAkRHEsXSAebzKJtPsLY1XcNePAFIieFBtz2ATanlokxnSC1Kkz',
-      skip_proof: false
-    })
+  for (let dna of testDnas) {
+    const dnaHash = await player.registerDna(dna.uri, null, dna.properties)
     dnas.push({
       nick: dna.nick,
       hash: dnaHash,
       membrane_proof: null
-    })
+    })                                       
   }
 
   // Must be sequential due to a bug in holochain

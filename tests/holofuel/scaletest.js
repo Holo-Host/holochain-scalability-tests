@@ -35,7 +35,7 @@ describe('Holofuel DNA', async () => {
     })
     orchestrator.run()
     s = await scenarioPromise
-    agents = await installAgents(s)
+    agents = await installAgents(s, 'holofuel')
   })
 
   afterEach(() => endScenario())
