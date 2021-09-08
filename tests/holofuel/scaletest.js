@@ -511,8 +511,6 @@ describe('Holofuel DNA', async () => {
       }
     }
 
-    await completeAllAccepted()
-
     let totalActionable = 0
     let totalCompleted = 0
     let totalPending = 0
