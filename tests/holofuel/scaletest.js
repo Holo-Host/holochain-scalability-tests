@@ -63,12 +63,12 @@ describe('Holofuel DNA', async () => {
     const currentlyAccepting = {}
     let totalCompleted = 0
     const totalExpected =
-      agents.length * (agents.length - 1) * cfg.promisesPerAgentPerPeer
+      agents.length * (agents.length - 1) * cfg.appSettings.holofuel.promisesPerAgentPerPeer
 
     const sendAllPeers = async (agent, agentIdx) => {
       for (
         let promiseIdx = 0;
-        promiseIdx < cfg.promisesPerAgentPerPeer;
+        promiseIdx < cfg.appSettings.holofuel.promisesPerAgentPerPeer;
         promiseIdx++
       ) {
         for (

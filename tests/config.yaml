@@ -1,8 +1,12 @@
 --- # Test configuration
   holoportChannel: "916"
-  conductorsPerHoloport: 1
-  agentsPerConductor: 3
-  promisesPerAgentPerPeer: 1
+  conductorsPerHoloport: 1 # SL Context: Number of Hosts
+  agentsPerConductor: 3 # SL Context: Number of SL Instances (ie: the number of happs installed on a holoport)
+  appSettings:
+    holofuel:
+      promisesPerAgentPerPeer: 1
+    servicelogger:
+      zomeCallsPerHapp: 2
   dnas:
     # Note: It's possible to pass { url: '...' } instead of { path: '...' } for uri.
     - nick: 'holofuel'
