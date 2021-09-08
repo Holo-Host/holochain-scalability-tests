@@ -153,7 +153,8 @@ describe('Holofuel DNA', async () => {
         null
       )
 
-      for (const promise of promise_actionable) {
+      for (let i = 0; i < promise_actionable.length; i++) {
+        const promise = promise_actionable[i]
         try {
           await accept(receiver, promise.id)
         } catch (e) {}
