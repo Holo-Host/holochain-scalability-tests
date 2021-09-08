@@ -7,7 +7,7 @@
   "author": "peeech <pj@imagine-nyc.com>",
   "license": "MIT",
   "scripts": {
-    "test": "TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 mocha --timeout 0 --recursive tests"
+    "test": "TRYORAMA_LOG_LEVEL=0 TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 mocha --timeout 0 --recursive tests"
   },
   "devDependencies": {
     "@holo-host/cryptolib": "^0.3.0",

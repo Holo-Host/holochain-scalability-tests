@@ -8,16 +8,16 @@
   dna: { path: '../holofuel-rsm/holofuel.dna' } # Note: It's possible to pass { url: '...' } instead.
   # disableSsh: true
   holoports:      # list of holoports participating in test
-    - name: "3mxb6dep80b24vwpdkyas7l8s7jg373d27kbbi61tavegtlfv0"
-      zerotierIp: "172.26.14.210"
-      error: false
-      errorMessage: null
-      timeToGossip: null
-    # - name: "2dbk737jjs2vyc1z0w72tmc0i7loprr8tbq6f1yevpms4msytn"
-    #   zerotierIp: "172.26.201.57"
+    # - name: "3mxb6dep80b24vwpdkyas7l8s7jg373d27kbbi61tavegtlfv0"
+    #   zerotierIp: "172.26.14.210"
     #   error: false
     #   errorMessage: null
     #   timeToGossip: null
+    - name: "2dbk737jjs2vyc1z0w72tmc0i7loprr8tbq6f1yevpms4msytn"
+      zerotierIp: "172.26.201.57"
+      error: false
+      errorMessage: null
+      timeToGossip: null
     - name: "idc0p6g8tm27exqoknkno4molls24mik3bu35jd6bswclutgb"
       zerotierIp: "172.26.205.66"
       error: false
@@ -28,3 +28,22 @@
     #   error: false
     #   errorMessage: null
     #   timeToGossip: null
+
+# --- # Test configuration
+#   holoportChannel: "916"
+#   conductorsPerHoloport: 1
+#   agentsPerConductor: 3
+#   promisesPerAgentPerPeer: 1
+#   dna: { path: '../holofuel-rsm/holofuel.dna' } # Note: It's possible to pass { url: '...' } instead.
+#   # disableSsh: true
+#   holoports:      # list of holoports participating in test
+#     # - name: "3mxb6dep80b24vwpdkyas7l8s7jg373d27kbbi61tavegtlfv0"
+#     #   zerotierIp: "172.26.14.210"
+#     #   error: false
+#     #   errorMessage: null
+#     #   timeToGossip: null
+#     - name: "5ugbhb66qeq7i4b6nsgkgwbut6p6u5p2a3s88c2fro08r7ystg"
+#       zerotierIp: "172.26.151.236"
+#       error: false
+#       errorMessage: null
+#       timeToGossip: null

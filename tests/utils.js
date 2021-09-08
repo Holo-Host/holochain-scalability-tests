@@ -23,3 +23,5 @@ exports.presentDuration = ms => {
 exports.wait = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 exports.base64AgentId = tryoramaAgent => encodeHoloHash('agent', Buffer.from(tryoramaAgent.agent))
+
+exports.getTimestamp = () => [Math.floor(new Date().getTime() / 1000), 0]
