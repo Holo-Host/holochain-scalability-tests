@@ -179,11 +179,14 @@ exports.installAgents = async s => {
     players.map((player, i) => installHappsForPlayer(player, i, cfg))
   )
 
-  const happs = happsPerPlayer.flat()
+  happs = happsPerPlayer.flat()
 
   await s.shareAllNodes(players)
   console.log('Installing agents: ✔')
-  return happs
+  return {
+    agents: happs,
+    players
+  }
 }
 
 const installHappsForPlayer = async (

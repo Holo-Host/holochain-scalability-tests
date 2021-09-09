@@ -5,17 +5,30 @@ const {
   installAgents
 } = require('../tests-setup')
 const tryorama = require('@holochain/tryorama')
-const encodeHoloHash = require('@holo-host/cryptolib').Codec.HoloHash.encode
-const { parseCfg, presentDuration } = require('../utils')
-const { isEqual, sum, mean } = require('lodash')
+const { parseCfg, presentDuration, wait, base64AgentId } = require('../utils')
+const {
+  resetConsistencyTimes,
+  agentConsistencyMs,
+  sendTransaction,
+  acceptTransaction,
+  numCompleted,
+  numPending,
+  numActionable,
+  getFinalState
+} = require('./transactions')
+const { sum, mean } = require('lodash')
 
 describe('Holofuel DNA', async () => {
   let agents
+  let players
   let s
   let endScenario
+  let results = []
+  let cfg
 
   before(async () => {
     await setUpHoloports()
+    cfg = parseCfg()
   })
 
   beforeEach(async () => {
@@ -36,10 +49,21 @@ describe('Holofuel DNA', async () => {
     })
     orchestrator.run()
     s = await scenarioPromise
-    agents = await installAgents(s)
+    const installedAgents = await installAgents(s)
+    agents = installedAgents.agents
+    players = installedAgents.players
+    resetConsistencyTimes(agents)
   })
 
   afterEach(() => endScenario())
+
+  after(() => {
+    results.forEach(({ title, logs }) => {
+      console.log(' ')
+      console.log(title)
+      logs.forEach(result => console.log(result))
+    })
+  })
 
   it('can make a zome call on each agent', async () => {
     await Promise.all(
@@ -59,11 +83,8 @@ describe('Holofuel DNA', async () => {
   })
 
   it('reaches consistency after many agents all send to every other agent concurrently', async () => {
-    const cfg = parseCfg()
-
-    const currentlyAccepting = {}
-    let totalSent = 0
-    let agentConsistencyMs = agents.map(() => 0)
+    let totalAccepted = 0
+    const agentConsistencyMs = agents.map(() => 0)
     const totalExpected =
       agents.length * (agents.length - 1) * cfg.promisesPerAgentPerPeer
 
@@ -81,7 +102,7 @@ describe('Holofuel DNA', async () => {
           promiseIdx++
         ) {
           const payload = {
-            receiver: encodeHoloHash('agent', Buffer.from(counterparty.agent)),
+            receiver: base64AgentId(counterparty),
             amount: '1',
             timestamp: [0, 0],
             expiration_date: [Number.MAX_SAFE_INTEGER, 0]
@@ -97,9 +118,7 @@ describe('Holofuel DNA', async () => {
               if (String(e).includes('is not held')) {
                 // This error means that the recipient is not yet present in our DHT shard.
                 agentConsistencyMs[agentIdx] += agentConsistencyDelay
-                await new Promise(resolve =>
-                  setTimeout(resolve, agentConsistencyDelay)
-                )
+                await wait(agentConsistencyDelay)
               } else {
                 console.error('create_promise error', e, 'payload', payload)
                 throw e
@@ -110,29 +129,21 @@ describe('Holofuel DNA', async () => {
       }
     }
 
-    const incrementCompleted = () => {
-      const currentTenth = Math.floor((totalSent * 10) / totalExpected)
-      totalSent += 1
-      const newTenth = Math.floor((totalSent * 10) / totalExpected)
+    const incrementAccepted = () => {
+      const currentTenth = Math.floor((totalAccepted * 10) / totalExpected)
+      totalAccepted += 1
+      const newTenth = Math.floor((totalAccepted * 10) / totalExpected)
       if (newTenth > currentTenth) {
-        console.log(`${totalSent}/${totalExpected} ✔`)
+        console.log(`${totalAccepted}/${totalExpected} ✔`)
       }
     }
 
     const accept = async (receiver, id) => {
-      if (currentlyAccepting[id]) {
-        return
-      }
-      currentlyAccepting[id] = true
-      try {
-        await receiver.cells[0].call('transactor', 'accept_transaction', {
-          address: id,
-          timestamp: [0, 0]
-        })
-        incrementCompleted()
-      } finally {
-        delete currentlyAccepting[id]
-      }
+      await receiver.cells[0].call('transactor', 'accept_transaction', {
+        address: id,
+        timestamp: [0, 0]
+      })
+      incrementAccepted()
     }
 
     const tryAcceptAll = async receiver => {
@@ -142,38 +153,15 @@ describe('Holofuel DNA', async () => {
         null
       )
 
-      for (const promise of promise_actionable) {
+      for (let i = 0; i < promise_actionable.length; i++) {
+        const promise = promise_actionable[i]
         try {
           await accept(receiver, promise.id)
         } catch (e) {}
       }
-    }
 
-    const getFinalState = async agent => {
-      const [actionable, completed, pending, ledger] = await Promise.all(
-        [
-          'get_actionable_transactions',
-          'get_completed_transactions',
-          'get_pending_transactions',
-          'get_ledger'
-        ].map(fn => agent.cells[0].call('transactor', fn, null))
-      )
-      return {
-        actionable,
-        completed: completed.length,
-        pending,
-        balance: ledger.balance
-      }
+      return promise_actionable.length
     }
-
-    const getCompleted = async agent =>
-      (
-        await agent.cells[0].call(
-          'transactor',
-          'get_completed_transactions',
-          null
-        )
-      ).length
 
     const expectedFinalState = {
       actionable: {
@@ -195,37 +183,385 @@ describe('Holofuel DNA', async () => {
     await Promise.all(agents.map(sendAllPeers))
     const finishSend = Date.now()
 
-    while (totalSent < totalExpected) {
-      await Promise.all(agents.map(tryAcceptAll))
+    console.log('Finished Sending ✔')
+
+    let totalActionable = 0
+
+    while (totalAccepted < totalExpected || totalActionable > 0) {
+      const actionablePerAgent = await Promise.all(agents.map(tryAcceptAll))
+      totalActionable = sum(actionablePerAgent)
     }
     const finishAccept = Date.now()
 
+    console.log('Finished Accepting ✔')
+
     let totalCompleted = 0
-    while (totalCompleted < totalExpected * 2) {
-      totalCompleted = sum(await Promise.all(agents.map(getCompleted)))
+    let totalPending = 0
+    while ((totalCompleted < totalExpected * 2) || totalPending > 0) {
+      const completedPerAgent = await Promise.all(agents.map(numCompleted))
+      const pendingPerAgent = await Promise.all(agents.map(numPending))
+      const actionablePerAgent = await Promise.all(agents.map(numActionable))
+      totalCompleted = sum(completedPerAgent)
+      totalPending = sum(pendingPerAgent)
+      totalActionable = sum(actionablePerAgent)
+      console.log(`completedPerAgent ${completedPerAgent} ✔`)
+      console.log(`totalCompleted ${totalCompleted}/${totalExpected * 2} ✔`)
+      console.log(`totalPending ${totalPending} ✔`)
+      console.log(`totalActionable ${totalActionable} ✔`)
+      await wait(5_000)
     }
 
-    expect(await Promise.all(agents.map(getFinalState))).to.deep.equal(
+    const finishedAll = Date.now()
+
+    // this is separated from the expect so that the report is the last thing in the logs
+    const finalStates = await Promise.all(agents.map(getFinalState))
+
+    console.log('All complete ✔')
+
+    results.push({
+      title: 'reaches consistency after many agents all send to every other agent concurrently',
+      logs: [
+        `Total Holoports\t${cfg.holoports.length}`,
+        `Total Conductors\t${cfg.holoports.length * cfg.conductorsPerHoloport}`,
+        `Total Agents\t${agents.length}`,
+        `Total Promises Created\t${totalAccepted}`,
+        `Time Waiting for Agent Consistency (Min)\t${presentDuration(
+          Math.min(...agentConsistencyMs)
+        )}`,
+        `Time Waiting for Agent Consistency (Max)\t${presentDuration(
+          Math.max(...agentConsistencyMs)
+        )}`,
+        `Time Waiting for Agent Consistency (Avg)\t${presentDuration(
+          mean(agentConsistencyMs)
+        )}`,
+        `Time Taken to Create Promises (incl. Agent Consistency)\t${presentDuration(
+          finishSend - start
+        )}`,
+        `Time Taken to Accept Promises\t${presentDuration(finishAccept - finishSend)}`,
+        `Time Waiting for Transactions to be Completed\t${presentDuration(finishedAll - finishAccept)}`,
+        `Total time taken\t${presentDuration(finishedAll - start)}`
+      ]
+    })
+
+    expect(finalStates).to.deep.equal(
       agents.map(() => expectedFinalState)
     )
+  })
 
-    console.log(`
-Total Holoports\t${cfg.holoports.length}
-Total Conductors\t${cfg.holoports.length * cfg.conductorsPerHoloport}
-Total Agents\t${agents.length}
-Total Promises Created\t${totalSent}
-Time Waiting for Agent Consistency (Min)\t${presentDuration(
-      Math.min(...agentConsistencyMs)
-    )}
-Time Waiting for Agent Consistency (Max)\t${presentDuration(
-      Math.max(...agentConsistencyMs)
-    )}
-Time Waiting for Agent Consistency (Avg)\t${presentDuration(
-      mean(agentConsistencyMs)
-    )}
-Time Taken to Create Promises (incl. Agent Consistency)\t${presentDuration(
-      finishSend - start
-    )}
-Time Taken to Accept Promises\t${presentDuration(finishAccept - finishSend)}`)
+  it('measures timing for random p2p transactions with parallel acceptance', async () => {
+    const { numTransactions } = cfg
+
+    let totalAccepted = 0
+
+    const incrementAccepted = () => {
+      const currentTenth = Math.floor((totalAccepted * 10) / numTransactions)
+      totalAccepted += 1
+      const newTenth = Math.floor((totalAccepted * 10) / numTransactions)
+      if (newTenth > currentTenth) {
+        console.log(`${totalAccepted}/${numTransactions} ✔`)
+      }
+    }
+
+    const timeStarted = Date.now()
+
+    await Promise.all(Array.from({ length: numTransactions }, async () => {
+      const sender = agents[Math.floor(Math.random() * agents.length)]
+      const receiver = agents.filter(agent => base64AgentId(agent) !== base64AgentId(sender))[Math.floor(Math.random() * (agents.length - 1))]
+      const transaction = await sendTransaction(sender, receiver)
+
+      await acceptTransaction(receiver, transaction)
+      incrementAccepted()
+    }))
+
+    const finishedSending = Date.now()
+
+    console.log('Finished Sending and Accepting ✔')
+
+    let totalActionable = 0
+    let totalCompleted = 0
+    let totalPending = 0
+    while ((totalCompleted < numTransactions * 2) || totalPending > 0) {
+      const completedPerAgent = await Promise.all(agents.map(numCompleted))
+      const pendingPerAgent = await Promise.all(agents.map(numPending))
+      const actionablePerAgent = await Promise.all(agents.map(numActionable))
+      totalCompleted = sum(completedPerAgent)
+      totalPending = sum(pendingPerAgent)
+      totalActionable = sum(actionablePerAgent)
+      console.log(`completedPerAgent ${completedPerAgent} ✔`)
+      console.log(`totalCompleted ${totalCompleted}/${numTransactions * 2} ✔`)
+      console.log(`totalPending ${totalPending} ✔`)
+      console.log(`totalActionable ${totalActionable} ✔`)
+      await wait(5_000)
+    }
+
+    const finishedAll = Date.now()
+
+    console.log('All complete ✔')
+
+    // this is separated from the expects so that the report is the last thing in the logs
+    const finalStates = await Promise.all(agents.map(getFinalState))
+
+
+    results.push({
+      title: 'measures timing for random p2p transactions with parallel acceptance',
+      logs: [
+        `Total Agents\t${agents.length}`,
+        `Total Promises Created\t${numTransactions}`,
+        `Time Waiting for Agent Consistency (Min)\t${presentDuration(
+              Math.min(...Object.values(agentConsistencyMs))
+            )}`,
+        `Time Waiting for Agent Consistency (Max)\t${presentDuration(
+              Math.max(...Object.values(agentConsistencyMs))
+            )}`,
+        `Time Waiting for Agent Consistency (Avg)\t${presentDuration(
+              mean(Object.values(agentConsistencyMs))
+            )}`,
+        `Time Taken to Create And Accept Promises (incl. Agent Consistency)\t${presentDuration(
+              finishedSending - timeStarted
+            )}`,
+        `Time Waiting for Transactions to be Completed\t${presentDuration(finishedAll - finishedSending)}`,
+        `Total time taken\t${presentDuration(finishedAll - timeStarted)}`
+      ]
+    })
+
+    expect(sum(finalStates.map(({ balance }) => Number(balance)))).to.equal(0)
+    expect(sum(finalStates.map(({ completed }) => completed))).to.equal(numTransactions * 2)
+  })
+
+  it('measures timing for random p2p transactions with serial acceptance', async () => {
+    const { numTransactions } = cfg
+
+    let totalAccepted = 0
+
+    const incrementAccepted = () => {
+      const currentTenth = Math.floor((totalAccepted * 10) / numTransactions)
+      totalAccepted += 1
+      const newTenth = Math.floor((totalAccepted * 10) / numTransactions)
+      if (newTenth > currentTenth) {
+        console.log(`${totalAccepted}/${numTransactions} ✔`)
+      }
+    }
+
+    const timeStarted = Date.now()
+
+    const transactions = []
+
+    await Promise.all(Array.from({ length: numTransactions }, async () => {
+      const sender = agents[Math.floor(Math.random() * agents.length)]
+      const receiver = agents.filter(agent => base64AgentId(agent) !== base64AgentId(sender))[Math.floor(Math.random() * (agents.length - 1))]
+      const transaction = await sendTransaction(sender, receiver)
+      transactions.push({
+        receiver,
+        transaction
+      })
+    }))
+
+    const finishedSending = Date.now()
+
+    console.log('Finished Sending ✔')
+
+    for (let i = 0; i < transactions.length; i++) {
+      const { receiver, transaction } = transactions[i]
+      await acceptTransaction(receiver, transaction)
+      incrementAccepted()
+    }
+
+    const finishedAccepting = Date.now()
+
+    console.log('Finished Accepting ✔')
+
+    let totalActionable = 0
+    let totalCompleted = 0
+    let totalPending = 0
+
+    while ((totalCompleted < numTransactions * 2) || totalPending > 0) {
+      const completedPerAgent = await Promise.all(agents.map(numCompleted))
+      const pendingPerAgent = await Promise.all(agents.map(numPending))
+      const actionablePerAgent = await Promise.all(agents.map(numActionable))
+      totalCompleted = sum(completedPerAgent)
+      totalPending = sum(pendingPerAgent)
+      totalActionable = sum(actionablePerAgent)
+      console.log(`completedPerAgent ${completedPerAgent} ✔`)
+      console.log(`totalCompleted ${totalCompleted}/${numTransactions * 2} ✔`)
+      console.log(`totalPending ${totalPending} ✔`)
+      console.log(`totalActionable ${totalActionable} ✔`)
+      await wait(5_000)
+    }
+
+    const finishedAll = Date.now()
+
+    console.log('All complete ✔')
+
+    // this is separated from the expects so that the report is the last thing in the logs
+    const finalStates = await Promise.all(agents.map(getFinalState))
+
+    results.push({
+      title: 'measures timing for random p2p transactions with serial acceptance',
+      logs: [
+        `Total Agents\t${agents.length}`,
+        `Total Promises Created\t${numTransactions}`,
+        `Time Waiting for Agent Consistency (Min)\t${presentDuration(
+              Math.min(...Object.values(agentConsistencyMs))
+            )}`,
+        `Time Waiting for Agent Consistency (Max)\t${presentDuration(
+              Math.max(...Object.values(agentConsistencyMs))
+            )}`,
+        `Time Waiting for Agent Consistency (Avg)\t${presentDuration(
+              mean(Object.values(agentConsistencyMs))
+            )}`,
+        `Time Taken to Create Promises (incl. Agent Consistency)\t${presentDuration(
+              finishedSending - timeStarted
+            )}`,
+        `Time Taken to Accept Promises (incl. Agent Consistency)\t${presentDuration(
+          finishedAccepting - finishedSending
+        )}`,
+        `Time Waiting for Transactions to be Completed\t${presentDuration(finishedAll - finishedAccepting)}`,
+        `Total time taken\t${presentDuration(finishedAll - timeStarted)}`
+      ]
+    })
+
+    expect(sum(finalStates.map(({ balance }) => Number(balance)))).to.equal(0)
+    expect(sum(finalStates.map(({ completed }) => completed))).to.equal(numTransactions * 2)
+  })
+
+  it('measures timing for random p2p transactions with serial acceptance and some senders offline', async () => {
+    const getPlayerIdx = appId => Number(appId.match(/^p([0-9]*)a/)[1])
+
+    const { numTransactions, fractionOffline } = cfg
+    const activationDelay = 2_000
+
+    const numSenders = Math.floor(agents.length / 2)
+    const senders = agents.slice(0, numSenders)
+    const receivers = agents.slice(numSenders)
+
+    const timeStarted = Date.now()
+
+    const transactions = []
+
+    let totalAccepted
+
+    await Promise.all(Array.from({ length: numTransactions }, async () => {
+      const senderIdx = Math.floor(Math.random() * senders.length)
+      const sender = senders[senderIdx]
+      const receiver = receivers[Math.floor(Math.random() * receivers.length)]
+      const transaction = await sendTransaction(sender, receiver)
+
+      transactions.push({
+        receiver,
+        transaction,
+        senderIdx
+      })
+    }))
+
+    const finishedSending = Date.now()
+
+    console.log('Finished Sending ✔')
+
+    const numOffline = Math.ceil(numSenders * fractionOffline)
+
+    for (let i = 0; i < numOffline; i++) {
+      const sender = senders[i]
+      const { hAppId } = sender
+      const playerIdx = getPlayerIdx(hAppId)
+      const player = players[playerIdx]
+      await player.adminWs().deactivateApp({
+        installed_app_id: hAppId
+      })
+    }
+
+    const incrementAccepted = () => {
+      const currentTenth = Math.floor((totalAccepted * 10) / numTransactions)
+      totalAccepted += 1
+      const newTenth = Math.floor((totalAccepted * 10) / numTransactions)
+      if (newTenth > currentTenth) {
+        console.log(`${totalAccepted}/${numTransactions} ✔`)
+      }
+    }
+
+    for (let i = 0; i < transactions.length; i++) {
+      const { receiver, transaction, senderIdx } = transactions[i]
+      const result = await acceptTransaction(receiver, transaction, numTransactions)
+      incrementAccepted()
+      if (senderIdx < numOffline) {
+        expect(result.status).deep.equal({ Accepted: null })
+      } else {
+        expect(result.status).deep.equal({ Completed: null })
+      }
+    }
+
+    const finishedAccepting = Date.now()
+
+    console.log('Finished Accepting ✔')
+
+    await wait(activationDelay)
+
+    for (let i = 0; i < numOffline; i++) {
+      const sender = senders[i]
+      const { hAppId } = sender
+      const playerIdx = getPlayerIdx(hAppId)
+      const player = players[playerIdx]
+      await player.adminWs().activateApp({
+        installed_app_id: hAppId
+      })
+    }
+
+    const completeAllAccepted = async () => {
+      for (let i = 0; i < senders.length; i++) {
+        const sender = senders[i]
+        await sender.cells[0].call('transactor', 'complete_accepted_transactions', null)
+      }
+    }
+
+    let totalActionable = 0
+    let totalCompleted = 0
+    let totalPending = 0
+    while ((totalCompleted < numTransactions * 2) || totalPending > 0) {
+      await completeAllAccepted()
+
+      const completedPerAgent = await Promise.all(agents.map(numCompleted))
+      const pendingPerAgent = await Promise.all(agents.map(numPending))
+      const actionablePerAgent = await Promise.all(agents.map(numActionable))
+      totalCompleted = sum(completedPerAgent)
+      totalPending = sum(pendingPerAgent)
+      totalActionable = sum(actionablePerAgent)
+      console.log(`completedPerAgent ${completedPerAgent} ✔`)
+      console.log(`totalCompleted ${totalCompleted}/${numTransactions * 2} ✔`)
+      console.log(`totalPending ${totalPending} ✔`)
+      console.log(`totalActionable ${totalActionable} ✔`)
+      await wait(5_000)
+    }
+
+    const finishedAll = Date.now()
+
+    console.log('All complete ✔')
+
+    results.push({
+      title: 'measures timing for random p2p transactions with serial acceptance and some senders offline',
+      logs: [
+        `Total Agents\t${agents.length}`,
+        `Total Promises Created\t${numTransactions}`,
+        `Time Waiting for Agent Consistency (Min)\t${presentDuration(
+          Math.min(...Object.values(agentConsistencyMs))
+        )}`,
+        `Time Waiting for Agent Consistency (Max)\t${presentDuration(
+          Math.max(...Object.values(agentConsistencyMs))
+        )}`,
+        `Time Waiting for Agent Consistency (Avg)\t${presentDuration(
+          mean(Object.values(agentConsistencyMs))
+        )}`,
+        `Time Taken to Create Promises (incl. Agent Consistency)\t${presentDuration(
+          finishedSending - timeStarted
+        )}`,
+        `Time Taken to Accept Promises (incl. Agent Consistency)\t${presentDuration(
+          finishedAccepting - finishedSending
+        )}`,
+        `Time Waiting for Transactions to be Completed\t${presentDuration(finishedAll - finishedAccepting)}`,
+        `Total time taken\t${presentDuration(finishedAll - timeStarted)}`
+      ]
+    })
+
+    const finalStates = await Promise.all(agents.map(getFinalState))
+    expect(sum(finalStates.map(({ balance }) => Number(balance)))).to.equal(0)
+    expect(sum(finalStates.map(({ completed }) => completed))).to.equal(numTransactions * 2)
   })
 })
