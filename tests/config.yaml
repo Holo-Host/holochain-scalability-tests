@@ -2,6 +2,7 @@
   holoportChannel: "916"
   conductorsPerHoloport: 1
   agentsPerConductor: 4
+  # promisesPerAgentPerPeer is used in the concurrent agent test. It's the number of promises sent from each agent to each peer.
   promisesPerAgentPerPeer: 1
   numTransactions: 24
   fractionOffline: 0.5
