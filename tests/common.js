@@ -15,7 +15,7 @@ const getSettings = signatory_happ => ({
 
 const getDiskUsage = host_happs => {
   const randomInt = getMockInt()
-  const source_chains = host_happs.map((host_happ, i) => [Codec.AgentId.decodeToHoloHash(host_happ.agent), randomInt + i])
+  const source_chains = host_happs.map((host_happ, i) => [host_happ.agent, randomInt + i])
   return {
     source_chains,
     integrated_entries: [["uhCEkmrkoAHPVf_eufG7eC5fm6QKrW5pPMoktvG5LOC0SnJ4vV1Uv", randomInt]],

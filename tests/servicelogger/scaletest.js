@@ -14,6 +14,8 @@ const { getActivityLog, getDiskUsage, getSettings } = require('../common');
 const TEST_TIMEOUT = 300_000 // 5 MINTUES
 const LOGGING_INTERVAL = 60_000 // 1 MINUTE
 
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+
 describe('Servicelogger DNA', async () => {
   let host_sl_happs, signatory_happ, endScenario, cfg, s
   before(async () => {
@@ -40,9 +42,9 @@ describe('Servicelogger DNA', async () => {
     s = await scenarioPromise
 
     const test_happs = await installAgents(s, 'servicelogger')
+    // todo: make signatory agents a global var instead of static number (currently 1)
     signatory_happ = test_happs[0]
     host_sl_happs = test_happs.slice(0)
-    // ([signatory_happ, ...host_sl_happs] = test_happs)
     const settings = getSettings(signatory_happ)
     try {
       await Promise.all(host_sl_happs.map(async host_sl_happ => await host_sl_happ.cells[0].call('service', 'set_logger_settings', settings)))
@@ -54,32 +56,26 @@ describe('Servicelogger DNA', async () => {
   afterEach(() => endScenario())
   
   it('logs the service activity and disk usage for set interval', async () => {
-    // set number of signator agents 
-    // set number of hosts >> affects number of host agents
-    // set number of zome calls
     const activityCallCount = cfg.appSettings.servicelogger.zomeCallsPerHapp
-    console.log('activityCallCount... : ', activityCallCount)
-
     const totalExpectedActivityLogCount = activityCallCount * host_sl_happs.length
     const completedActivityLogPerHost = {}
-
     const totalExpectedDiskLogEventCount = (TEST_TIMEOUT/LOGGING_INTERVAL) * host_sl_happs.length
     const completedDiskLogEventsPerHost = {}
 
-    let testDuration = 0
+    let diskLogIntervalID
+    let logActivityDuration = 0
     const logHostService = async () => {
-      console.log('STARTED....')
       const startTime = performance.now()
       // start making zome calls to log activity
-      // > interate over number of hosts
+      // > iterate over number of hosts
       for (let agentIdx = 0; agentIdx < host_sl_happs.length; agentIdx++) {
-        // >> iterate over number of zome calls per host
+        // >> iterate over number of zome calls per host and log activity
         for (let activityIdx = 0; activityIdx < activityCallCount; activityIdx++) {
           const activityLog = await getActivityLog(signatory_happ)
           console.log("activity Log params : ", activityLog);
           try {
             const logActivityResult = await host_sl_happs[agentIdx].cells[0].call('service', 'log_activity', activityLog)
-            console.log(' activity Log result -------------- >>>>>>>>>>>>>> ', logActivityResult)
+            console.log(' Activity Log Result -------------- >', logActivityResult)
             if (!completedActivityLogPerHost[host_sl_happs[agentIdx].agent]) {
               completedActivityLogPerHost[host_sl_happs[agentIdx].agent] = 0
             }
@@ -89,17 +85,13 @@ describe('Servicelogger DNA', async () => {
           }
         }
         
-        // log disk usage per host every 1 min (...or do we want do it after a certain volume of calls?)
+        // log disk usage per host every 1 min
         const logUsage = async () => {
           console.log("starting setInterval... ");
           try {
             const diskUsage = getDiskUsage(host_sl_happs)
             const logDiskUsageResult = await host_sl_happs[agentIdx].cells[0].call('service', 'log_disk_usage', diskUsage)
-            console.log(' log Disk UsageResult -------------- >>>>>>>>>>>>>> ', logDiskUsageResult)
-            // expect(logDiskUsageResult).to.have.property('total_disk_usage', 1)
-            // expect(logDiskUsageResult).to.have.property('integrated_entries')
-            // expect(logDiskUsageResult).to.have.property('source_chains')
-            
+            console.log(' Disk Usage Log Result -------------- > ', logDiskUsageResult)
             if (!completedDiskLogEventsPerHost[host_sl_happs[agentIdx].agent]) {
               completedDiskLogEventsPerHost[host_sl_happs[agentIdx].agent] = 0
             }
@@ -113,13 +105,17 @@ describe('Servicelogger DNA', async () => {
         }
         
         await logUsage()
-        setInterval(() => logUsage(), LOGGING_INTERVAL)
+        diskLogIntervalID = setInterval(() => logUsage(), LOGGING_INTERVAL)
       }
-
+      
       console.log('COMPLETE....')
       console.log('completedActivityLogPerHost :', completedActivityLogPerHost)
+      logActivityDuration = performance.now() - startTime
+
+      // intentionally wait for remaining duration of test time (to ensure all nec disk usg calls are made)
+      await delay(TEST_TIMEOUT - logActivityDuration)
+      clearInterval(diskLogIntervalID)
       console.log('completedDiskLogEventsPerHost :', completedDiskLogEventsPerHost)
-      testDuration = performance.now() - startTime
     }
 
     // start loop that runs for given time (RUNTIME)
@@ -137,12 +133,10 @@ describe('Servicelogger DNA', async () => {
         // Log successful call count each agent that did NOT succeed in making 100% of expected log_activity & log_disk_usage calls:
         for (let agentIdx = 0; agentIdx < host_sl_happs.length; agentIdx++) {
           if (completedActivityLogPerHost[host_sl_happs[agentIdx].agent] !== activityCallCount) {
-            console.log('activityCallCount : ', activityCallCount)
-            console.warn(`Host agent ${encodeAgentHash(host_sl_happs[agentIdx].agent)} only succeded in ${completedActivityLogPerHost[host_sl_happs[agentIdx].agent] || 0} activity log calls`)
+            console.warn(`Host agent ${encodeAgentHash(host_sl_happs[agentIdx].agent)} only succeded in ${completedActivityLogPerHost[host_sl_happs[agentIdx].agent] || 0}/${activityCallCount} activity log calls`)
           }
           if (completedDiskLogEventsPerHost[host_sl_happs[agentIdx].agent] !== (TEST_TIMEOUT/LOGGING_INTERVAL)) {
-            console.log('TEST_TIMEOUT/LOGGING_INTERVAL : ', TEST_TIMEOUT/LOGGING_INTERVAL)
-            console.warn(`Host agent ${encodeAgentHash(host_sl_happs[agentIdx].agent)} only succeded in ${completedDiskLogEventsPerHost[host_sl_happs[agentIdx].agent] || 0} disk usage log calls`)
+            console.warn(`Host agent ${encodeAgentHash(host_sl_happs[agentIdx].agent)} only succeded in ${completedDiskLogEventsPerHost[host_sl_happs[agentIdx].agent] || 0}/${TEST_TIMEOUT/LOGGING_INTERVAL} disk usage log calls`)
           }
         }
     
@@ -164,8 +158,8 @@ describe('Servicelogger DNA', async () => {
           Total number of Disk Log Events \t${totalCompletedDiskLogEventCount}
           \n
 
-          Test Duration\t${presentDuration(testDuration) || 'Test Incomplete'}
-          Set Test Timeout\t${presentDuration(TEST_TIMEOUT)}
+          Log Activity Calls Duration\t${presentDuration(logActivityDuration) || 'Test Incomplete'}
+          Full Test Duration\t${presentDuration(TEST_TIMEOUT)}
           `)
         //
         testDuration = 0
