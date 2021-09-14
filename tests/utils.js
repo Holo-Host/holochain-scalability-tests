@@ -6,6 +6,8 @@ exports.parseCfg = () => {
   return YAML.parse(fileContents)
 }
 
+exports.accumulate = intArray => intArray.reduce((acc, int) => acc + int, 0)
+
 exports.presentDuration = ms => {
   const second = 1000
   const minute = 60 * second
