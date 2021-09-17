@@ -10,7 +10,7 @@ const {
   installAgents
 } = require('../tests-setup')
 const { parseCfg, presentDuration, presentFrequency, getNestedLogValue, accumulate, makePercentage } = require('../utils')
-const { getActivityLog, getDiskUsage, getSettings } = require('../common')
+const { getActivityLog, getDiskUsage, getSettings } = require('./utils/index')
 
 describe('Servicelogger DNA', async () => {
   let testTimeout, activityLoggingInterval, diskUsageLoggingInterval, hostedHappSLs, signatoryHapps, endScenario, cfg, s
