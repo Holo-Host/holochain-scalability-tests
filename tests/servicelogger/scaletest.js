@@ -2,22 +2,18 @@ const { expect } = require('chai')
 const tryorama = require('@holochain/tryorama')
 const { performance } = require('perf_hooks')
 const { Codec } = require('@holo-host/cryptolib')
+const _ = require('lodash')
 const encodeAgentHash = Codec.AgentId.encode
 const {
   setUpHoloports,
   restartTrycp,
   installAgents
 } = require('../tests-setup')
-const { parseCfg, presentDuration, accumulate } = require('../utils')
-const { getActivityLog, getDiskUsage, getSettings } = require('../common');
-
-const TEST_TIMEOUT = 300_000 // 5 MINTUES
-const LOGGING_INTERVAL = 60_000 // 1 MINUTE
-
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+const { parseCfg, presentDuration, presentFrequency, getNestedLogValue, accumulate, makePercentage } = require('../utils')
+const { getActivityLog, getDiskUsage, getSettings } = require('../common')
 
 describe('Servicelogger DNA', async () => {
-  let host_sl_happs, signatory_happ, endScenario, cfg, s
+  let testTimeout, activityLoggingInterval, diskUsageLoggingInterval, hostedHappSLs, signatoryHapp, endScenario, cfg, s
   before(async () => {
     await setUpHoloports()
     cfg = parseCfg()
@@ -41,14 +37,18 @@ describe('Servicelogger DNA', async () => {
     orchestrator.run()
     s = await scenarioPromise
 
+    testTimeout = cfg.appSettings.servicelogger.testDuration
+    activityLoggingInterval = cfg.appSettings.servicelogger.activityLoggingInterval
+    diskUsageLoggingInterval = cfg.appSettings.servicelogger.diskUsageLoggingInterval
+    
     const test_happs = await installAgents(s, 'servicelogger')
     // todo: make signatory agents a global var instead of static number (currently 1)
-    signatory_happ = test_happs[0]
-    host_sl_happs = test_happs.slice(0)
-    const settings = getSettings(signatory_happ)
+    signatoryHapp = test_happs[0]
+    hostedHappSLs = test_happs.slice(0)
+    const settings = getSettings(signatoryHapp)
     try {
-      await Promise.all(host_sl_happs.map(async host_sl_happ => await host_sl_happ.cells[0].call('service', 'set_logger_settings', settings)))
-      console.log(`Logger Settings set for all ${host_sl_happs.length} (non-signatory) host agents`)
+      await Promise.all(hostedHappSLs.map(async hostedHappSL => await hostedHappSL.cells[0].call('service', 'set_logger_settings', settings)))
+      console.log(`Logger Settings set for all ${hostedHappSLs.length} (non-signatory) agents`)
     } catch (error) {
       console.log('Error: Failed to set servicelogger settings:', error)
     }
@@ -56,125 +56,97 @@ describe('Servicelogger DNA', async () => {
   afterEach(() => endScenario())
   
   it('logs the service activity and disk usage for set interval', async () => {
-    const activityCallCount = cfg.appSettings.servicelogger.zomeCallsPerHapp
-    const totalExpectedActivityLogCount = activityCallCount * host_sl_happs.length
-    const completedActivityLogPerHost = {}
-    const totalExpectedDiskLogEventCount = (TEST_TIMEOUT/LOGGING_INTERVAL) * host_sl_happs.length
-    const completedDiskLogEventsPerHost = {}
+    if ( activityLoggingInterval > testTimeout || diskUsageLoggingInterval > testTimeout) {
+      throw new Error('Provided test duration is not longer than duration of logging intervals.\nPlease revisit the testing config and correct provided lengths (in ms).')
+    }
+    const totalExpectedActivityLogCount = Math.ceil(testTimeout/activityLoggingInterval) * hostedHappSLs.length
+    const completedActivityLogPerAgent = {}
+    const totalExpectedDiskLogEventCount = Math.ceil(testTimeout/diskUsageLoggingInterval) * hostedHappSLs.length
+    const completedDiskLogEventsPerAgent = {}
 
-    let diskLogIntervalID
-    let logActivityDuration = 0
-    const logHostService = async () => {
-      const startTime = performance.now()
-      // start making zome calls to log activity
-      // > iterate over number of hosts
-      for (let agentIdx = 0; agentIdx < host_sl_happs.length; agentIdx++) {
-        // >> iterate over number of zome calls per host and log activity
-        for (let activityIdx = 0; activityIdx < activityCallCount; activityIdx++) {
-          const activityLog = await getActivityLog(signatory_happ)
-          console.log("activity Log params : ", activityLog);
-          try {
-            const logActivityResult = await host_sl_happs[agentIdx].cells[0].call('service', 'log_activity', activityLog)
-            console.log(' Activity Log Result -------------- >', logActivityResult)
-            if (!completedActivityLogPerHost[host_sl_happs[agentIdx].agent]) {
-              completedActivityLogPerHost[host_sl_happs[agentIdx].agent] = 0
-            }
-            completedActivityLogPerHost[host_sl_happs[agentIdx].agent]++
-          } catch (error) {
-            console.error(`Error - Failed to log activity call #${activityIdx} for host agent ${encodeAgentHash(host_sl_happs[agentIdx].agent)} : ${error}`)
-          }
-        }
-        
-        // log disk usage per host every 1 min
-        const logUsage = async () => {
-          console.log("starting setInterval... ");
-          try {
-            const diskUsage = getDiskUsage(host_sl_happs)
-            const logDiskUsageResult = await host_sl_happs[agentIdx].cells[0].call('service', 'log_disk_usage', diskUsage)
-            console.log(' Disk Usage Log Result -------------- > ', logDiskUsageResult)
-            if (!completedDiskLogEventsPerHost[host_sl_happs[agentIdx].agent]) {
-              completedDiskLogEventsPerHost[host_sl_happs[agentIdx].agent] = 0
-            }
-            completedDiskLogEventsPerHost[host_sl_happs[agentIdx].agent]++
-          } catch (error) {
-            // detect when the zome calls start to fail for each host
-            // track last failed for each user
-            // log the time it failed 
-            console.error(`Error - Failed to log disk usage call #${agentIdx} for host agent ${encodeAgentHash(host_sl_happs[agentIdx].agent)} : ${error}`)
-          }
-        }
-        
-        await logUsage()
-        diskLogIntervalID = setInterval(() => logUsage(), LOGGING_INTERVAL)
+    const callZome = async (hostHapp, logList, zomeFnName, paramFn, paramFnArgs) => {
+      if (!logList[encodeAgentHash(hostHapp.agent)]) {
+        logList[encodeAgentHash(hostHapp.agent)] = []
       }
-      
-      console.log('COMPLETE....')
-      console.log('completedActivityLogPerHost :', completedActivityLogPerHost)
-      logActivityDuration = performance.now() - startTime
-
-      // intentionally wait for remaining duration of test time (to ensure all nec disk usg calls are made)
-      await delay(TEST_TIMEOUT - logActivityDuration)
-      clearInterval(diskLogIntervalID)
-      console.log('completedDiskLogEventsPerHost :', completedDiskLogEventsPerHost)
+      let count = logList[encodeAgentHash(hostHapp.agent)].length
+      count++
+      const startTime = performance.now()
+      try {
+        const params = await paramFn(paramFnArgs)
+        const logActivityResult = await hostHapp.cells[0].call('service', zomeFnName, params)
+        activityLogDuration = Math.floor(performance.now() - startTime)
+        logList[encodeAgentHash(hostHapp.agent)].push({
+          count,
+          duration: activityLogDuration,
+          error: null
+        })
+      } catch (error) {
+        activityLogDuration = Math.floor(performance.now() - startTime)
+        console.error(`Error: Failed to log activity call #${logList[encodeAgentHash(hostHapp.agent)]} for host agent ${encodeAgentHash(hostHapp.agent)} : ${error}`)
+        logList[encodeAgentHash(hostHapp.agent)].push({
+          count,
+          duration: activityLogDuration,
+          error: {
+            time: performance.now(),
+            message: error.message
+          }
+        })
+      }
     }
 
-    // start loop that runs for given time (RUNTIME)
-    Promise.race([
-      await logHostService(),
-      new Promise(resolve => {
-        setTimeout(() => {
-          console.log('TIMING OUT....')
-          resolve()
-        }, TEST_TIMEOUT, 'Service Logging Timer is Complete');
-      })
-    ])
-      .then(() => {
-        console.log("NEXT... ")
-        // Log successful call count each agent that did NOT succeed in making 100% of expected log_activity & log_disk_usage calls:
-        for (let agentIdx = 0; agentIdx < host_sl_happs.length; agentIdx++) {
-          if (completedActivityLogPerHost[host_sl_happs[agentIdx].agent] !== activityCallCount) {
-            console.warn(`Host agent ${encodeAgentHash(host_sl_happs[agentIdx].agent)} only succeded in ${completedActivityLogPerHost[host_sl_happs[agentIdx].agent] || 0}/${activityCallCount} activity log calls`)
-          }
-          if (completedDiskLogEventsPerHost[host_sl_happs[agentIdx].agent] !== (TEST_TIMEOUT/LOGGING_INTERVAL)) {
-            console.warn(`Host agent ${encodeAgentHash(host_sl_happs[agentIdx].agent)} only succeded in ${completedDiskLogEventsPerHost[host_sl_happs[agentIdx].agent] || 0}/${TEST_TIMEOUT/LOGGING_INTERVAL} disk usage log calls`)
-          }
-        }
+    const startTestTime = Date.now()
+    do {
+      const loopDate = Date.now()
+      if ((loopDate - startTestTime)%activityLoggingInterval === 0) { // activityLoggingInterval
+        await Promise.all(hostedHappSLs.map(hh => callZome(hh, completedActivityLogPerAgent, 'log_activity', getActivityLog, signatoryHapp)) )
+      }
+      if ((loopDate - startTestTime)%diskUsageLoggingInterval === 0) { // diskUsageLoggingInterval
+        await Promise.all(hostedHappSLs.map(hh => callZome(hh, completedDiskLogEventsPerAgent, 'log_disk_usage', getDiskUsage, hostedHappSLs)) )
+      }
+    } while (Date.now() - startTestTime < (testTimeout - 100)) // testTimeout
+
+    const totalCompletedActivityLogCount = accumulate(getNestedLogValue(completedActivityLogPerAgent, 'count'))
+    const totalCompletedDiskLogEventCount = accumulate(getNestedLogValue(completedDiskLogEventsPerAgent, 'count'))
+    const totalCompletedActivityErrorCount = getNestedLogValue(completedActivityLogPerAgent, 'error', { all: true }).filter(el => el !== null).length
+    const totalCompletedDiskLogErrorCount = getNestedLogValue(completedDiskLogEventsPerAgent, 'error', { all: true }).filter(el => el !== null).length
+
+    console.log(`\n**********************************************`)
+    console.table(
+      {
+        'Test Duration': presentDuration(testTimeout),
+        'Number Holoports': cfg.holoports.length,
+        'Total Conductors': (cfg.holoports.length * cfg.conductorsPerHoloport) + [signatoryHapp].length,
+        'Total Signatory Agents': [signatoryHapp].length,
+        'Total Hosted Agents': hostedHappSLs.length,
+        'Activity Log Frequency': presentFrequency('call', activityLoggingInterval),
+        'Total Activity Log Calls Invoked': totalCompletedActivityLogCount,
+        'Total Activity Log Call Errors': totalCompletedActivityErrorCount,
+        'Disk Usage Log Frequency': presentFrequency('call', diskUsageLoggingInterval),
+        'Total Disk Usage Log Calls Invoked': totalCompletedDiskLogEventCount,
+        'Total Disk Usage Log Call Errors': totalCompletedDiskLogErrorCount
+      }
+    )
+    console.log(`**********************************************\n`)
+    function AgentRecord(pubkey) {
+      const agentActivityErrorList = completedActivityLogPerAgent[encodeAgentHash(pubkey)].map(log => log.error)
+      const agentActivityErrorCount = agentActivityErrorList.filter(el => el !== null).length
+      const firstAgentActivityError = agentActivityErrorList.find(el => el !== null)
+
+      const agentDiskUsageErrorList = completedDiskLogEventsPerAgent[encodeAgentHash(pubkey)].map(log => log.error)
+      const agentDiskUsageErrorCount = agentDiskUsageErrorList.filter(el => el !== null).length
+      const firstAgentDiskUsageError = agentDiskUsageErrorList.find(el => el !== null)
+
+      this['Agent ID'] = encodeAgentHash(pubkey)
+      this['Activity Logs Successfully Completed'] = completedActivityLogPerAgent[encodeAgentHash(pubkey)].pop().count - agentActivityErrorCount
+      this['Time of First Activity Log Error (ms)'] = firstAgentActivityError ? Math.floor(firstAgentActivityError.time) : 'N/A'
+      this['Disk Usage Logs Successfully Completed'] = completedDiskLogEventsPerAgent[encodeAgentHash(pubkey)].pop().count - agentDiskUsageErrorCount
+      this['Time of First Disk Usage Log Error (ms)'] = firstAgentDiskUsageError ? Math.floor(firstAgentDiskUsageError.time) : 'N/A'
+    }
+    console.table(hostedHappSLs.map(hostedHappSL => new AgentRecord(hostedHappSL.agent)))
     
-        // STATS: 
-        // Total time the test ran
-    
-        // Total number of logs per host
-        // Sum Total number of logs
-    
-        // Total number of disk logs events per host
-        // Sum Total number of disk logs events (disk logs x number of hosts)'
-        console.log(`
-          Total Holoports\t${cfg.holoports.length}
-          Total Conductors\t${(cfg.holoports.length * cfg.conductorsPerHoloport) + [signatory_happ].length}
-          Total Host Agents\t${host_sl_happs.length}
-          Total Signatory Agents\t${[signatory_happ].length}
-          **********************************************
-          Total number of Activity Logs \t${totalCompletedActivityLogCount}
-          Total number of Disk Log Events \t${totalCompletedDiskLogEventCount}
-          \n
-
-          Log Activity Calls Duration\t${presentDuration(logActivityDuration) || 'Test Incomplete'}
-          Full Test Duration\t${presentDuration(TEST_TIMEOUT)}
-          `)
-        //
-        testDuration = 0
-
-        const totalCompletedActivityLogCount = accumulate(Object.values(completedActivityLogPerHost)) || 0
-        const totalCompletedDiskLogEventCount = accumulate(Object.values(completedDiskLogEventsPerHost)) || 0
-
-        console.log('totalExpectedActivityLogCount : ', totalExpectedActivityLogCount)
-        console.log('totalCompletedActivityLogCount : ', totalCompletedActivityLogCount)
-        expect(totalExpectedActivityLogCount).to.equal(totalCompletedActivityLogCount)
-
-        console.log('totalExpectedDiskLogEventCount : ', totalExpectedDiskLogEventCount)
-        console.log('totalCompletedDiskLogEventCount : ', totalCompletedDiskLogEventCount)
-        console.log('completedDiskLogEventsPerHost : ', completedDiskLogEventsPerHost)
-        expect(totalExpectedDiskLogEventCount).to.equal(completedDiskLogEventsPerHost)
-      })
+    expect(totalExpectedActivityLogCount).to.equal(totalCompletedActivityLogCount)
+    expect(totalCompletedActivityErrorCount).to.equal(0)
+    expect(totalExpectedDiskLogEventCount).to.equal(totalCompletedDiskLogEventCount)
+    expect(totalCompletedDiskLogErrorCount).to.equal(0)
   })
 })

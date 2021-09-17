@@ -86,7 +86,6 @@ async function get_confirmation_signature(data, signator_happ) {
   return await signator_happ.cells[0].call('service', 'sign_confirmation', data);
 }
 
-
 module.exports = {
   getSettings, 
   getActivityLog,

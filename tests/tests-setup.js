@@ -171,8 +171,8 @@ exports.installAgents = async (s, testNicks) => {
     cfg.holoports.map((hp, i) => {
       // add signator conductor to first holoport
       if (i === 0 && testNicks.includes('servicelogger')) {
-        console.log('NOTICE: Adding a servicelogger signing agent conductor to first holport:', cfg.holoports[0].zerotierIp)
-        configs = Array.from({ length: cfg.conductorsPerHoloport + 1 }, () =>
+        console.log('NOTICE: Adding a servicelogger signing agent conductor to each holoport:', cfg.holoports.map(hp => hp.zerotierIp))
+        configs = Array.from({ length: cfg.conductorsPerHoloport + 1 }, () => // holoports.length
           tryorama.Config.gen({ network: defaultTryoramaNetworkConfig })
         )
       }

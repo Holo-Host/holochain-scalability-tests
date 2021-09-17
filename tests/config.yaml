@@ -1,12 +1,15 @@
 --- # Test configuration
   holoportChannel: "916"
-  conductorsPerHoloport: 1 # SL Context: Number of Hosts
-  agentsPerConductor: 3 # SL Context: Number of SL Instances (ie: the number of happs installed on a holoport)
+  conductorsPerHoloport: 1
+  agentsPerConductor: 3 # SL Context: Number of SL Instances (ie: the number of hosted happs installed on a holoport)
   appSettings:
     holofuel:
       promisesPerAgentPerPeer: 1
     servicelogger:
-      zomeCallsPerHapp: 2
+      # intervals and duration calculated in ms
+      activityLoggingInterval: 60000 # call once every min
+      diskUsageLoggingInterval: 60000 # call once every min
+      testDuration: 120000 # 300_000 = 5min
   dnas:
     # Note: It's possible to pass { url: '...' } instead of { path: '...' } for uri.
     - nick: 'holofuel'

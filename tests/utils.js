@@ -6,7 +6,29 @@ exports.parseCfg = () => {
   return YAML.parse(fileContents)
 }
 
+exports.delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+exports.getNestedLogValue = (arr, value, opts = {}) => {
+  const { all } = opts
+  return Object.values(arr).flatMap(valueRecords => {
+    if (all) {
+      const recordList = valueRecords.map(record => record[value])
+      return recordList
+    } else {
+      return valueRecords[valueRecords.length-1][value]
+    }
+  })
+}
+
 exports.accumulate = intArray => intArray.reduce((acc, int) => acc + int, 0)
+
+exports.makePercentage = fraction => fraction * 100
+
+exports.presentFrequency = (unit, ms) => {
+  const fullTime = this.presentDuration(ms)
+  fullTime.slice(0,3)
+  return `1 ${unit}/${fullTime}`
+}
 
 exports.presentDuration = ms => {
   const second = 1000
