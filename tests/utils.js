@@ -27,7 +27,6 @@ exports.makePercentage = fraction => fraction * 100
 
 exports.presentFrequency = (unit, ms) => {
   const fullTime = this.presentDuration(ms)
-  fullTime.slice(0,3)
   return `1 ${unit}/${fullTime}`
 }
 

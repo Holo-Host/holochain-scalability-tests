@@ -142,7 +142,7 @@ const holoportTest = cfg => {
 
 exports.setUpHoloports = async () => {
   cfg = await resetHoloports(cfg)
-  console.log("CONFG : ", cfg)
+  console.log("Starting Configuration : ", cfg)
   if (!holoportTest(cfg))
     throw new Error(
       `None of the holoports was set up successfully - aborting test`

@@ -3,13 +3,14 @@ const tryorama = require('@holochain/tryorama')
 const { performance } = require('perf_hooks')
 const { Codec } = require('@holo-host/cryptolib')
 const _ = require('lodash')
+const { inspect } = require('util')
 const encodeAgentHash = Codec.AgentId.encode
 const {
   setUpHoloports,
   restartTrycp,
   installAgents
 } = require('../tests-setup')
-const { parseCfg, presentDuration, presentFrequency, getNestedLogValue, accumulate, makePercentage } = require('../utils')
+const { parseCfg, presentDuration, presentFrequency, getNestedLogValue, accumulate } = require('../utils')
 const { getActivityLog, getDiskUsage, getSettings } = require('./utils/index')
 
 describe('Servicelogger DNA', async () => {
@@ -41,7 +42,7 @@ describe('Servicelogger DNA', async () => {
     activityLoggingInterval = cfg.appSettings.servicelogger.activityLoggingInterval
     diskUsageLoggingInterval = cfg.appSettings.servicelogger.diskUsageLoggingInterval
     
-    const testHapps = await installAgents(s, 'servicelogger')
+    const { agents: testHapps } = await installAgents(s, 'servicelogger')
     const signatoryHappIndices = []
     signatoryHapps = testHapps.filter((_,i) => {
       if (i%(cfg.holoports.length * cfg.agentsPerConductor + 1) === 0) {
@@ -96,7 +97,7 @@ describe('Servicelogger DNA', async () => {
         })
       } catch (error) {
         activityLogDuration = Math.floor(performance.now() - startTime)
-        console.error(`Error: Failed to log activity call #${logList[encodeAgentHash(hostHapp.agent)]} for host agent ${encodeAgentHash(hostHapp.agent)} : ${error}`)
+        console.error(`Error: Failed to log ${zomeFnName.includes('activity') ? 'activity log' : 'disk usage log'} call #${inspect(logList[encodeAgentHash(hostHapp.agent)].pop().count)} for host agent ${encodeAgentHash(hostHapp.agent)} : ${error}`)
         logList[encodeAgentHash(hostHapp.agent)].push({
           count,
           duration: activityLogDuration,
