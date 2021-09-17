@@ -164,15 +164,17 @@ exports.restartTrycp = async () => {
 
 exports.installAgents = async (s, testNicks) => {
   console.log(`\nInstalling agents`)
-  let configs = Array.from({ length: cfg.conductorsPerHoloport }, () =>
-    tryorama.Config.gen({ network: defaultTryoramaNetworkConfig })
-  )
+  let configs
   const playersPerHp = await Promise.all(
-    cfg.holoports.map((hp, i) => {
-      // add signator conductor to first holoport
-      if (i === 0 && testNicks.includes('servicelogger')) {
-        console.log('NOTICE: Adding a servicelogger signing agent conductor to each holoport:', cfg.holoports.map(hp => hp.zerotierIp))
-        configs = Array.from({ length: cfg.conductorsPerHoloport + 1 }, () => // holoports.length
+    cfg.holoports.map(hp => {
+      if (testNicks.includes('servicelogger')) {
+        // add signator conductor to each holoport when running servicelogger tests
+        console.log('NOTICE: Adding a servicelogger signing agent conductor to holoport:', hp.zerotierIp)
+        configs = Array.from({ length: cfg.conductorsPerHoloport + 1 }, () => // 1 more per each holoport in array
+          tryorama.Config.gen({ network: defaultTryoramaNetworkConfig })
+        )
+      } else {
+        configs = Array.from({ length: cfg.conductorsPerHoloport }, () =>
           tryorama.Config.gen({ network: defaultTryoramaNetworkConfig })
         )
       }
@@ -209,8 +211,8 @@ const installHappsForPlayer = async (
     if (testDnas.length === 0) {
       throw new Error('Failed to intall happ for test player - no DNA found with provided nick.')
     }
-    // limit only one agent for the add'l SL signator conductor
-    if (playerIdx === 0 && testDnas.some(({ nick }) => nick === 'servicelogger')) {
+    // limit only one agent for the add'l SL signator conductors (one per holoport)
+    if ((playerIdx%((cfg.holoports.length * count) + 1) === 0) && testDnas.some(({ nick }) => nick === 'servicelogger')) {
       count = 1
     }
   }

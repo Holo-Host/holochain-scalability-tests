@@ -13,7 +13,7 @@ const { parseCfg, presentDuration, presentFrequency, getNestedLogValue, accumula
 const { getActivityLog, getDiskUsage, getSettings } = require('../common')
 
 describe('Servicelogger DNA', async () => {
-  let testTimeout, activityLoggingInterval, diskUsageLoggingInterval, hostedHappSLs, signatoryHapp, endScenario, cfg, s
+  let testTimeout, activityLoggingInterval, diskUsageLoggingInterval, hostedHappSLs, signatoryHapps, endScenario, cfg, s
   before(async () => {
     await setUpHoloports()
     cfg = parseCfg()
@@ -41,11 +41,18 @@ describe('Servicelogger DNA', async () => {
     activityLoggingInterval = cfg.appSettings.servicelogger.activityLoggingInterval
     diskUsageLoggingInterval = cfg.appSettings.servicelogger.diskUsageLoggingInterval
     
-    const test_happs = await installAgents(s, 'servicelogger')
-    // todo: make signatory agents a global var instead of static number (currently 1)
-    signatoryHapp = test_happs[0]
-    hostedHappSLs = test_happs.slice(0)
-    const settings = getSettings(signatoryHapp)
+    const testHapps = await installAgents(s, 'servicelogger')
+    const signatoryHappIndices = []
+    signatoryHapps = testHapps.filter((_,i) => {
+      if (i%(cfg.holoports.length * cfg.agentsPerConductor + 1) === 0) {
+        signatoryHappIndices.push(i)
+        return i%(cfg.holoports.length * cfg.agentsPerConductor + 1) === 0
+      }
+    })
+    // remove signatory happs to form hosted happ array
+    signatoryHappIndices.map(sigHappIndex => testHapps.splice(sigHappIndex, 1))
+    hostedHappSLs = testHapps
+    const settings = getSettings(signatoryHapps[0])
     try {
       await Promise.all(hostedHappSLs.map(async hostedHappSL => await hostedHappSL.cells[0].call('service', 'set_logger_settings', settings)))
       console.log(`Logger Settings set for all ${hostedHappSLs.length} (non-signatory) agents`)
@@ -72,8 +79,15 @@ describe('Servicelogger DNA', async () => {
       count++
       const startTime = performance.now()
       try {
+        if (paramFnArgs === signatoryHapps) {
+          const hasNoRemainder = count%cfg.agentsPerConductor === 0
+          const hostIndex = hasNoRemainder
+            ? count/cfg.agentsPerConductor - 1
+            : Math.floor(count/cfg.agentsPerConductor)
+          paramFnArgs = signatoryHapps[hostIndex]
+        }
         const params = await paramFn(paramFnArgs)
-        const logActivityResult = await hostHapp.cells[0].call('service', zomeFnName, params)
+        await hostHapp.cells[0].call('service', zomeFnName, params)
         activityLogDuration = Math.floor(performance.now() - startTime)
         logList[encodeAgentHash(hostHapp.agent)].push({
           count,
@@ -98,7 +112,7 @@ describe('Servicelogger DNA', async () => {
     do {
       const loopDate = Date.now()
       if ((loopDate - startTestTime)%activityLoggingInterval === 0) { // activityLoggingInterval
-        await Promise.all(hostedHappSLs.map(hh => callZome(hh, completedActivityLogPerAgent, 'log_activity', getActivityLog, signatoryHapp)) )
+        await Promise.all(hostedHappSLs.map(hh => callZome(hh, completedActivityLogPerAgent, 'log_activity', getActivityLog, signatoryHapps)) )
       }
       if ((loopDate - startTestTime)%diskUsageLoggingInterval === 0) { // diskUsageLoggingInterval
         await Promise.all(hostedHappSLs.map(hh => callZome(hh, completedDiskLogEventsPerAgent, 'log_disk_usage', getDiskUsage, hostedHappSLs)) )
@@ -115,8 +129,8 @@ describe('Servicelogger DNA', async () => {
       {
         'Test Duration': presentDuration(testTimeout),
         'Number Holoports': cfg.holoports.length,
-        'Total Conductors': (cfg.holoports.length * cfg.conductorsPerHoloport) + [signatoryHapp].length,
-        'Total Signatory Agents': [signatoryHapp].length,
+        'Total Conductors': (cfg.holoports.length * cfg.conductorsPerHoloport) + signatoryHapps.length,
+        'Total Signatory Agents': signatoryHapps.length,
         'Total Hosted Agents': hostedHappSLs.length,
         'Activity Log Frequency': presentFrequency('call', activityLoggingInterval),
         'Total Activity Log Calls Invoked': totalCompletedActivityLogCount,
