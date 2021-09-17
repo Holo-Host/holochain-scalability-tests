@@ -217,9 +217,6 @@ const installHappsForPlayer = async (
     }
   }
 
-  console.log('count : ', count )
-  console.log("testDnas : ", testDnas)
-
   let dnas = []
   for (let dna of testDnas) {
     const dnaHash = await player.registerDna(dna.uri, null, dna.properties)
