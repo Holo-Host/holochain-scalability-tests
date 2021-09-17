@@ -26,11 +26,10 @@
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/@holo-host/wasm-key-manager/-/wasm-key-manager-1.0.0.tgz#32e5365ddc4518a01c17d2aba09d11bf3a042429"
   integrity sha512-GTfeQ2iYvYYrIkuaF0QupWP/y8sdItwL6Tr1osyaU7eUsWtGfpZqDcTZny8KNDdnQAEEP2nDWZORA/Z3EMJa3w==
-
-"@holochain/conductor-api@^0.0.4":
-  version "0.0.4"
-  resolved "https://registry.yarnpkg.com/@holochain/conductor-api/-/conductor-api-0.0.4.tgz#a9ad7df1bbdeee6053ad0c84039821498591a6a3"
-  integrity sha512-s52H+JMtiWID8wsqkKVkbjNDrHeVD88X+XWEllIi9INc7md2nBkMKBVChc/qgpRFqrpj2X8j/Es9MtvIJYnQqg==
+"@holochain/conductor-api@^0.2.0":
+  version "0.2.0"
+  resolved "https://registry.yarnpkg.com/@holochain/conductor-api/-/conductor-api-0.2.0.tgz#d2b9d27aa5cda359f63a646206c095a38364fe39"
+  integrity sha512-GUjItNXRAxrae9hwf3brVVAB55bkG+Z3u6tEkmazrMs2tk+egIOjN9Oin1GsORjQoNw+7xj7mwZ1+TLY2F8hiQ==
   dependencies:
     "@msgpack/msgpack" "2.4.0"
     "@types/ws" "^7.2.4"
@@ -51,7 +50,7 @@
 "@holochain/tryorama@../tryorama":
   version "0.4.3"
   dependencies:
-    "@holochain/conductor-api" "^0.0.4"
+    "@holochain/conductor-api" "^0.2.0"
     "@holochain/hachiko" "^0.5.2"
     "@iarna/toml" "^2.2.5"
     "@msgpack/msgpack" "^2.1.0"
@@ -685,7 +684,7 @@ locate-path@^6.0.0:
   dependencies:
     p-locate "^5.0.0"
 
-lodash@^4.17.15, lodash@^4.17.20:
+lodash@^4.17.15, lodash@^4.17.20, lodash@^4.17.21:
   version "4.17.21"
   resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.21.tgz#679591c564c3bffaae8454cf0b3df370c3d6911c"
   integrity sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==

@@ -12,9 +12,10 @@
     "test-servicelogger": "TRYORAMA_LOG_LEVEL=0 TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 mocha --timeout 0 --recursive tests/servicelogger"
   },
   "devDependencies": {
-    "@holochain/tryorama": "../tryorama",
     "@holo-host/cryptolib": "^0.3.0",
+    "@holochain/tryorama": "../tryorama",
     "chai": "^4.3.4",
+    "lodash": "^4.17.21",
     "mocha": "^9.0.2"
   },
   "dependencies": {

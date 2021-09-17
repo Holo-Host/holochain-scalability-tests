@@ -15,9 +15,5 @@ ssh -o StrictHostKeychecking=no root@$1 -i $SSH_KEY_PATH bash <<EOF
   nix-channel --update
   nixos-rebuild switch
 
-  rm -rf /var/lib/holochain-rsm/
-  rm -rf /var/lib/configure-holochain/
   rm -rf /tmp/trycp/
-  systemctl restart lair-keystore.service
-  systemctl restart configure-holochain.service
 EOF

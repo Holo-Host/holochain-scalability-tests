@@ -1,9 +1,12 @@
 --- # Test configuration
   holoportChannel: "916"
   conductorsPerHoloport: 1
+  numTransactions: 24
+  fractionOffline: 0.5
   agentsPerConductor: 3 # SL Context: Number of SL Instances (ie: the number of hosted happs installed on a holoport)
   appSettings:
     holofuel:
+      # promisesPerAgentPerPeer is used in the holofuel concurrent agent test. It's the number of promises sent from each agent to each peer.
       promisesPerAgentPerPeer: 1
     servicelogger:
       # intervals and duration calculated in ms
@@ -33,8 +36,13 @@
     #   error: false
     #   errorMessage: null
     #   timeToGossip: null
-    - name: "rkbpxayrx3b9mrslvp26oz88rw36wzltxaklm00czl5u5mx1w"
-      zerotierIp: "172.26.235.20"
+    - name: "idc0p6g8tm27exqoknkno4molls24mik3bu35jd6bswclutgb"
+      zerotierIp: "172.26.205.66"
       error: false
       errorMessage: null
       timeToGossip: null
+    # - name: "rkbpxayrx3b9mrslvp26oz88rw36wzltxaklm00czl5u5mx1w"
+    #   zerotierIp: "172.26.235.20"
+    #   error: false
+    #   errorMessage: null
+    #   timeToGossip: null
