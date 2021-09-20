@@ -142,6 +142,7 @@ const holoportTest = cfg => {
 
 exports.setUpHoloports = async () => {
   cfg = await resetHoloports(cfg)
+  console.log("Starting Configuration : ", cfg)
   if (!holoportTest(cfg))
     throw new Error(
       `None of the holoports was set up successfully - aborting test`
@@ -164,19 +165,29 @@ exports.restartTrycp = async () => {
   await new Promise(r => setTimeout(r, 1000));
 }
 
-exports.installAgents = async s => {
+exports.installAgents = async (s, testNicks) => {
   console.log(`\nInstalling agents`)
-  const configs = Array.from({ length: cfg.conductorsPerHoloport }, () =>
-    tryorama.Config.gen({ network: defaultTryoramaNetworkConfig })
-  )
-
+  let configs
   const playersPerHp = await Promise.all(
-    cfg.holoports.map(hp => s.players(configs, true, `${hp.zerotierIp}:9000`))
+    cfg.holoports.map(hp => {
+      if (testNicks.includes('servicelogger')) {
+        // add signator conductor to each holoport when running servicelogger tests
+        console.log('NOTICE: Adding a servicelogger signing agent conductor to holoport:', hp.zerotierIp)
+        configs = Array.from({ length: cfg.conductorsPerHoloport + 1 }, () => // 1 more per each holoport in array
+          tryorama.Config.gen({ network: defaultTryoramaNetworkConfig })
+        )
+      } else {
+        configs = Array.from({ length: cfg.conductorsPerHoloport }, () =>
+          tryorama.Config.gen({ network: defaultTryoramaNetworkConfig })
+        )
+      }
+      return s.players(configs, true, `${hp.zerotierIp}:9000`)
+    })
   )
   const players = playersPerHp.flat()
 
   const happsPerPlayer = await Promise.all(
-    players.map((player, i) => installHappsForPlayer(player, i, cfg))
+    players.map((player, i) => installHappsForPlayer(player, i, cfg, testNicks))
   )
 
   happs = happsPerPlayer.flat()
@@ -192,31 +203,47 @@ exports.installAgents = async s => {
 const installHappsForPlayer = async (
   player,
   playerIdx,
-  { agentsPerConductor: count, dna }
+  { agentsPerConductor: count, dnas: cfgDnas },
+  testNicks = []
 ) => {
-  const dnaHash = await player.registerDna(dna, null, {
-    holo_agent_override:
-      'uhCAkRHEsXSAebzKJtPsLY1XcNePAFIieFBtz2ATanlokxnSC1Kkz',
-    skip_proof: false
-  })
+  let testDnas = []
+  if (testNicks.length === 0) {
+    console.warn('No DNA nickname was specified for current test, all apps in config will now be installed.')
+    testDnas  = cfgDnas
+  } else {
+    testDnas = cfgDnas.filter(dna => testNicks.includes(dna.nick))
+    if (testDnas.length === 0) {
+      throw new Error('Failed to intall happ for test player - no DNA found with provided nick.')
+    }
+    // limit only one agent for the add'l SL signator conductors (one per holoport)
+    if (playerIdx%(cfg.holoports.length * (cfg.conductorsPerHoloport + 1)/cfg.holoports.length) === 0 && testDnas.some(({ nick }) => nick === 'servicelogger')) {
+      count = 1
+    }
+  }
+
+  let dnas = []
+  for (let dna of testDnas) {
+    const dnaHash = await player.registerDna(dna.uri, null, dna.properties)
+    dnas.push({
+      nick: dna.nick,
+      hash: dnaHash,
+      membrane_proof: null
+    })                                       
+  }
+
   // Must be sequential due to a bug in holochain
   const result = []
   for (let agentIdx = 0; agentIdx < count; agentIdx++) {
     const agent_key = await player.adminWs().generateAgentPubKey()
-    const dnas = [
-      {
-        hash: dnaHash,
-        nick: 'holofuel',
-        membrane_proof: Buffer.from(
-          memProofJSON[`${playerIdx * count + agentIdx}@holo.host`],
-          'base64'
-        ) // Currently hardcoded since we don't have an array of unique membrane proofs
-      }
-    ]
+    // Currently hardcode mem proof since we don't have an array of unique ones
+    dnas.map(dna => dna.membrane_proof = Buffer.from(
+      memProofJSON[`${playerIdx * count + agentIdx}@holo.host`],
+      'base64'
+    ))
     const happ = await player._installHapp({
       agent_key,
       dnas,
-      installed_app_id: `p${playerIdx}a${agentIdx}`
+      installed_app_id: `p:${playerIdx}_a:${agentIdx}`
     })
     result.push(happ)
   }

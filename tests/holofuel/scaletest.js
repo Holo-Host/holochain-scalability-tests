@@ -49,7 +49,7 @@ describe('Holofuel DNA', async () => {
     })
     orchestrator.run()
     s = await scenarioPromise
-    const installedAgents = await installAgents(s)
+    const installedAgents = await installAgents(s, 'holofuel')
     agents = installedAgents.agents
     players = installedAgents.players
     resetConsistencyTimes(agents)
@@ -86,7 +86,7 @@ describe('Holofuel DNA', async () => {
     let totalAccepted = 0
     const agentConsistencyMs = agents.map(() => 0)
     const totalExpected =
-      agents.length * (agents.length - 1) * cfg.promisesPerAgentPerPeer
+      agents.length * (agents.length - 1) * cfg.appSettings.holofuel.promisesPerAgentPerPeer
 
     const sendAllPeers = async (agent, agentIdx) => {
       for (
@@ -98,7 +98,7 @@ describe('Holofuel DNA', async () => {
           agents[(agentIdx + counterpartyOffset) % agents.length]
         for (
           let promiseIdx = 0;
-          promiseIdx < cfg.promisesPerAgentPerPeer;
+          promiseIdx < cfg.appSettings.holofuel.promisesPerAgentPerPeer;
           promiseIdx++
         ) {
           const payload = {
