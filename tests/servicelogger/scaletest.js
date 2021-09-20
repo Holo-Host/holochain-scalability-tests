@@ -51,7 +51,6 @@ describe('Servicelogger DNA', async () => {
       }
     })
     // remove signatory happs to form hosted happ array
-    console.log('signatoryHappIndices : ', signatoryHappIndices)
     signatoryHappIndices.map(sigHappIndex => {
       testHapps.splice(sigHappIndex, 1)
     })
