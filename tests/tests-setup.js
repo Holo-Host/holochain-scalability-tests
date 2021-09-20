@@ -216,7 +216,7 @@ const installHappsForPlayer = async (
       throw new Error('Failed to intall happ for test player - no DNA found with provided nick.')
     }
     // limit only one agent for the add'l SL signator conductors (one per holoport)
-    if ((playerIdx%((cfg.holoports.length * cfg.conductorsPerHoloport * count) + 1) === 0) && testDnas.some(({ nick }) => nick === 'servicelogger')) {
+    if (playerIdx%(cfg.holoports.length * (cfg.conductorsPerHoloport + 1)/cfg.holoports.length) === 0 && testDnas.some(({ nick }) => nick === 'servicelogger')) {
       count = 1
     }
   }

@@ -45,9 +45,9 @@ describe('Servicelogger DNA', async () => {
     const { agents: testHapps } = await installAgents(s, 'servicelogger')
     const signatoryHappIndices = []
     signatoryHapps = testHapps.filter((_,i) => {
-      if (i%(cfg.holoports.length * cfg.conductorsPerHoloport * cfg.agentsPerConductor + 1) === 0) {
+      if (i%(testHapps.length/cfg.holoports.length) === 0) {
         signatoryHappIndices.push(i)
-        return i%(cfg.holoports.length * cfg.conductorsPerHoloport * cfg.agentsPerConductor + 1) === 0
+        return true
       }
     })
     // remove signatory happs to form hosted happ array
@@ -84,7 +84,7 @@ describe('Servicelogger DNA', async () => {
       try {
         if (paramFnArgs === signatoryHapps) {
           const agentIdx = hostedHappSLs.indexOf(hostHapp)
-          const hostIndex = Math.floor(agentIdx/(cfg.agentsPerConductor*cfg.conductorsPerHoloport*cfg.holoports.length))
+          const hostIndex = Math.floor(agentIdx/cfg.holoports.length)
           paramFnArgs = signatoryHapps[hostIndex]
         }
         const params = await paramFn(paramFnArgs)
@@ -132,8 +132,8 @@ describe('Servicelogger DNA', async () => {
         'Test Duration': presentDuration(testTimeout),
         'Number Holoports': cfg.holoports.length,
         'Total Conductors': (cfg.holoports.length * cfg.conductorsPerHoloport) + signatoryHapps.length,
-        'Total Signatory Agents': signatoryHapps.length,
         'Total Hosted Agents': hostedHappSLs.length,
+        'Total Signatory Agents\n(x1/Holoport)': signatoryHapps.length,
         'Activity Log Frequency': presentFrequency('call', activityLoggingInterval),
         'Total Activity Log Calls Invoked': totalCompletedActivityLogCount,
         'Total Activity Log Call Errors': totalCompletedActivityErrorCount,
