@@ -5,12 +5,8 @@ const { Codec } = require('@holo-host/cryptolib')
 const _ = require('lodash')
 const { inspect } = require('util')
 const encodeAgentHash = Codec.AgentId.encode
-const {
-  setUpHoloports,
-  restartTrycp,
-  installAgents
-} = require('../tests-setup')
-const { parseCfg, presentDuration, presentFrequency, getNestedLogValue, accumulate } = require('../utils')
+const { setUpHoloports, restartTrycp, installAgents } = require('../tests-setup')
+const { parseCfg, presentDuration, presentFrequency, getNestedLogValue, accumulate, displaylast6 } = require('../utils')
 const { getActivityLog, getDiskUsage, getSettings } = require('./utils/index')
 
 describe('Servicelogger DNA', async () => {
@@ -81,10 +77,10 @@ describe('Servicelogger DNA', async () => {
       let count = logList[encodeAgentHash(hostHapp.agent)].length
       count++
       const startTime = performance.now()
+      const agentIdx = hostedHappSLs.indexOf(hostHapp)
       try {
         if (paramFnArgs === signatoryHapps) {
-          const agentIdx = hostedHappSLs.indexOf(hostHapp)
-          const hostIndex = Math.floor(agentIdx/cfg.holoports.length)
+          const hostIndex = Math.floor(agentIdx/(cfg.agentsPerConductor * cfg.conductorsPerHoloport))
           paramFnArgs = signatoryHapps[hostIndex]
         }
         const params = await paramFn(paramFnArgs)
@@ -95,9 +91,10 @@ describe('Servicelogger DNA', async () => {
           duration: activityLogDuration,
           error: null
         })
+        console.log(`Completed ${zomeFnName.includes('activity') ? 'Activity' : 'Disk Usage'} Call: agent:${agentIdx} x count:${count}`)
       } catch (error) {
         activityLogDuration = Math.floor(performance.now() - startTime)
-        console.error(`Error: Failed to log ${zomeFnName.includes('activity') ? 'activity log' : 'disk usage log'} call #${inspect(logList[encodeAgentHash(hostHapp.agent)].slice(-1)[0].count)} for host agent ${encodeAgentHash(hostHapp.agent)} : ${error}`)
+        console.error(`Error: Failed to log ${zomeFnName.includes('activity') ? 'Activity' : 'Disk Usage'} call #${count} for agent #${agentIdx} (${encodeAgentHash(hostHapp.agent)}) : ${error}`)
         logList[encodeAgentHash(hostHapp.agent)].push({
           count,
           duration: activityLogDuration,
@@ -124,41 +121,51 @@ describe('Servicelogger DNA', async () => {
     const totalCompletedDiskLogEventCount = accumulate(getNestedLogValue(completedDiskLogEventsPerAgent, 'count'))
     const totalCompletedActivityErrorCount = getNestedLogValue(completedActivityLogPerAgent, 'error', { all: true }).filter(el => el !== null).length
     const totalCompletedDiskLogErrorCount = getNestedLogValue(completedDiskLogEventsPerAgent, 'error', { all: true }).filter(el => el !== null).length
+    const avgActivityLogCallDuration = Math.round(getNestedLogValue(completedActivityLogPerAgent, 'duration', { all: true }).reduce((acc, t) => acc + t, 0)/hostedHappSLs.length)
+    const avgDiskLogCallDuration = Math.round(getNestedLogValue(completedDiskLogEventsPerAgent, 'duration', { all: true }).reduce((acc, t) => acc + t, 0)/hostedHappSLs.length)
 
     // log outcomes in terminal
-    console.log(`\n**********************************************`)
     console.table(
       {
+        '-': '-',
         'Test Duration': presentDuration(testTimeout),
         'Number Holoports': cfg.holoports.length,
-        'Total Conductors': (cfg.holoports.length * cfg.conductorsPerHoloport) + signatoryHapps.length,
+        'Number Agents Per Host Conductor': cfg.agentsPerConductor,
+        'Total Host Conductors': cfg.holoports.length * cfg.conductorsPerHoloport,
         'Total Hosted Agents': hostedHappSLs.length,
-        'Total Signatory Agents\n(x1/Holoport)': signatoryHapps.length,
+        'Total Signatory Conductors (x1/Holoport)': signatoryHapps.length,
+        'Total Signatory Agents (x1/Signatory Conductor)': signatoryHapps.length,
+        '--': '--',
         'Activity Log Frequency': presentFrequency('call', activityLoggingInterval),
+        'Average Duration per Activity Log Call': presentDuration(avgActivityLogCallDuration),
         'Total Activity Log Calls Invoked': totalCompletedActivityLogCount,
         'Total Activity Log Call Errors': totalCompletedActivityErrorCount,
         'Total Successful Activity Log Calls': totalCompletedActivityLogCount - totalCompletedActivityErrorCount,
+        '---': '---',
         'Disk Usage Log Frequency': presentFrequency('call', diskUsageLoggingInterval),
+        'Average Duration per Disk Usage Log Call': presentDuration(avgDiskLogCallDuration),
         'Total Disk Usage Log Calls Invoked': totalCompletedDiskLogEventCount,
         'Total Disk Usage Log Call Errors': totalCompletedDiskLogErrorCount,
         'Total Successful Disk Usage Log Calls': totalCompletedDiskLogEventCount - totalCompletedDiskLogErrorCount
       }
     )
-    console.log(`**********************************************\n`)
     function AgentRecord(pubkey) {
-      const agentActivityErrorList = completedActivityLogPerAgent[encodeAgentHash(pubkey)].map(log => log.error)
+      const getAgentValueList = (logList, key) => logList[encodeAgentHash(pubkey)].map(log => log[key])
+      const agentActivityErrorList = getAgentValueList(completedActivityLogPerAgent, 'error')
       const agentActivityErrorCount = agentActivityErrorList.filter(el => el !== null).length
-      const firstAgentActivityError = agentActivityErrorList.find(el => el !== null)
-
-      const agentDiskUsageErrorList = completedDiskLogEventsPerAgent[encodeAgentHash(pubkey)].map(log => log.error)
+      const agentActivityDurationList = getAgentValueList(completedActivityLogPerAgent, 'duration')
+      const agentAvgActivityDuration = Math.round(agentActivityDurationList.reduce((acc, t) => acc + t, 0))
+      const agentDiskUsageErrorList = getAgentValueList(completedDiskLogEventsPerAgent, 'error')
       const agentDiskUsageErrorCount = agentDiskUsageErrorList.filter(el => el !== null).length
-      const firstAgentDiskUsageError = agentDiskUsageErrorList.find(el => el !== null)
-
-      this['Agent ID'] = encodeAgentHash(pubkey)
-      this['Activity Logs Successfully Completed'] = completedActivityLogPerAgent[encodeAgentHash(pubkey)].pop().count - agentActivityErrorCount
-      this['Time of First Activity Log Error (ms)'] = firstAgentActivityError ? Math.floor(firstAgentActivityError.time) : 'N/A'
-      this['Disk Usage Logs Successfully Completed'] = completedDiskLogEventsPerAgent[encodeAgentHash(pubkey)].pop().count - agentDiskUsageErrorCount
-      this['Time of First Disk Usage Log Error (ms)'] = firstAgentDiskUsageError ? Math.floor(firstAgentDiskUsageError.time) : 'N/A'
+      const agentDiskUsageDurationList = getAgentValueList(completedDiskLogEventsPerAgent, 'duration')
+      const agentAvgDiskUsageDuration = Math.round(agentDiskUsageDurationList.reduce((acc, t) => acc + t, 0))
+      this['Agent ID'] = displaylast6(encodeAgentHash(pubkey))
+      this['Successful Activity Logs'] = completedActivityLogPerAgent[encodeAgentHash(pubkey)].pop().count - agentActivityErrorCount
+      this['Avg Activity Log Duration(ms)'] = presentDuration(agentAvgActivityDuration)
+      this['First Activity Log Error(ms)'] = agentActivityErrorCount[0] ? Math.floor(agentActivityErrorCount[0].time) : 'N/A'
+      this['Successful Disk Usage Logs'] = completedDiskLogEventsPerAgent[encodeAgentHash(pubkey)].pop().count - agentDiskUsageErrorCount
+      this['Avg Disk Usage Log Duration(ms)'] = presentDuration(agentAvgDiskUsageDuration)
+      this['First Disk Usage Log Error(ms)'] = agentDiskUsageErrorCount[0] ? Math.floor(agentDiskUsageErrorCount[0].time) : 'N/A'
     }
     console.table(hostedHappSLs.map(hostedHappSL => new AgentRecord(hostedHappSL.agent)))
     
