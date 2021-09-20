@@ -45,13 +45,16 @@ describe('Servicelogger DNA', async () => {
     const { agents: testHapps } = await installAgents(s, 'servicelogger')
     const signatoryHappIndices = []
     signatoryHapps = testHapps.filter((_,i) => {
-      if (i%(cfg.holoports.length * cfg.agentsPerConductor + 1) === 0) {
+      if (i%(cfg.holoports.length * cfg.conductorsPerHoloport * cfg.agentsPerConductor + 1) === 0) {
         signatoryHappIndices.push(i)
-        return i%(cfg.holoports.length * cfg.agentsPerConductor + 1) === 0
+        return i%(cfg.holoports.length * cfg.conductorsPerHoloport * cfg.agentsPerConductor + 1) === 0
       }
     })
     // remove signatory happs to form hosted happ array
-    signatoryHappIndices.map(sigHappIndex => testHapps.splice(sigHappIndex, 1))
+    console.log('signatoryHappIndices : ', signatoryHappIndices)
+    signatoryHappIndices.map(sigHappIndex => {
+      testHapps.splice(sigHappIndex, 1)
+    })
     hostedHappSLs = testHapps
     const settings = getSettings(signatoryHapps[0])
     try {
@@ -81,10 +84,8 @@ describe('Servicelogger DNA', async () => {
       const startTime = performance.now()
       try {
         if (paramFnArgs === signatoryHapps) {
-          const hasNoRemainder = count%cfg.agentsPerConductor === 0
-          const hostIndex = hasNoRemainder
-            ? count/cfg.agentsPerConductor - 1
-            : Math.floor(count/cfg.agentsPerConductor)
+          const agentIdx = hostedHappSLs.indexOf(hostHapp)
+          const hostIndex = Math.floor(agentIdx/(cfg.agentsPerConductor*cfg.conductorsPerHoloport*cfg.holoports.length))
           paramFnArgs = signatoryHapps[hostIndex]
         }
         const params = await paramFn(paramFnArgs)
@@ -97,13 +98,13 @@ describe('Servicelogger DNA', async () => {
         })
       } catch (error) {
         activityLogDuration = Math.floor(performance.now() - startTime)
-        console.error(`Error: Failed to log ${zomeFnName.includes('activity') ? 'activity log' : 'disk usage log'} call #${inspect(logList[encodeAgentHash(hostHapp.agent)].pop().count)} for host agent ${encodeAgentHash(hostHapp.agent)} : ${error}`)
+        console.error(`Error: Failed to log ${zomeFnName.includes('activity') ? 'activity log' : 'disk usage log'} call #${inspect(logList[encodeAgentHash(hostHapp.agent)].slice(-1)[0].count)} for host agent ${encodeAgentHash(hostHapp.agent)} : ${error}`)
         logList[encodeAgentHash(hostHapp.agent)].push({
           count,
           duration: activityLogDuration,
           error: {
             time: performance.now(),
-            message: error.message
+            message: inspect(error.message)
           }
         })
       }
@@ -112,19 +113,20 @@ describe('Servicelogger DNA', async () => {
     const startTestTime = Date.now()
     do {
       const loopDate = Date.now()
-      if ((loopDate - startTestTime)%activityLoggingInterval === 0) { // activityLoggingInterval
+      if ((loopDate - startTestTime)%activityLoggingInterval === 0) {
         await Promise.all(hostedHappSLs.map(hh => callZome(hh, completedActivityLogPerAgent, 'log_activity', getActivityLog, signatoryHapps)) )
       }
-      if ((loopDate - startTestTime)%diskUsageLoggingInterval === 0) { // diskUsageLoggingInterval
+      if ((loopDate - startTestTime)%diskUsageLoggingInterval === 0) {
         await Promise.all(hostedHappSLs.map(hh => callZome(hh, completedDiskLogEventsPerAgent, 'log_disk_usage', getDiskUsage, hostedHappSLs)) )
       }
-    } while (Date.now() - startTestTime < (testTimeout - 100)) // testTimeout
+    } while (Date.now() - startTestTime < (testTimeout - 100))
 
     const totalCompletedActivityLogCount = accumulate(getNestedLogValue(completedActivityLogPerAgent, 'count'))
     const totalCompletedDiskLogEventCount = accumulate(getNestedLogValue(completedDiskLogEventsPerAgent, 'count'))
     const totalCompletedActivityErrorCount = getNestedLogValue(completedActivityLogPerAgent, 'error', { all: true }).filter(el => el !== null).length
     const totalCompletedDiskLogErrorCount = getNestedLogValue(completedDiskLogEventsPerAgent, 'error', { all: true }).filter(el => el !== null).length
 
+    // log outcomes in terminal
     console.log(`\n**********************************************`)
     console.table(
       {
@@ -136,9 +138,11 @@ describe('Servicelogger DNA', async () => {
         'Activity Log Frequency': presentFrequency('call', activityLoggingInterval),
         'Total Activity Log Calls Invoked': totalCompletedActivityLogCount,
         'Total Activity Log Call Errors': totalCompletedActivityErrorCount,
+        'Total Successful Activity Log Calls': totalCompletedActivityLogCount - totalCompletedActivityErrorCount,
         'Disk Usage Log Frequency': presentFrequency('call', diskUsageLoggingInterval),
         'Total Disk Usage Log Calls Invoked': totalCompletedDiskLogEventCount,
-        'Total Disk Usage Log Call Errors': totalCompletedDiskLogErrorCount
+        'Total Disk Usage Log Call Errors': totalCompletedDiskLogErrorCount,
+        'Total Successful Disk Usage Log Calls': totalCompletedDiskLogEventCount - totalCompletedDiskLogErrorCount
       }
     )
     console.log(`**********************************************\n`)
@@ -159,6 +163,7 @@ describe('Servicelogger DNA', async () => {
     }
     console.table(hostedHappSLs.map(hostedHappSL => new AgentRecord(hostedHappSL.agent)))
     
+    // test whether expected number of tests were run and all passed
     expect(totalExpectedActivityLogCount).to.equal(totalCompletedActivityLogCount)
     expect(totalCompletedActivityErrorCount).to.equal(0)
     expect(totalExpectedDiskLogEventCount).to.equal(totalCompletedDiskLogEventCount)

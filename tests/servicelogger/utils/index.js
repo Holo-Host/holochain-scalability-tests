@@ -25,6 +25,8 @@ const getDiskUsage = host_happs => {
 
 // fn that gets the activity_logs
 const getActivityLog = async (signator_happ) => {
+  console.log('signator_happ: ', signator_happ)
+
   let request_payload = {
     call_spec: {
       args_hash: "uhCkkmrkoAHPVf_eufG7eC5fm6QKrW5pPMoktvG5LOC0SnJ4vV1Uv",
