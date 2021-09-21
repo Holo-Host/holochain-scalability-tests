@@ -2,16 +2,21 @@
 
 ## Running test
 
-
 Please edit `tests/config.yaml` to your liking, then run (from the root on the repository)
 
+### To run all test suites:
 ```
-yarn install
 yarn test
 ```
-#### Prerequisites
 
-Local tryorama installation at `../tryorama`:
+### To run the Holofuel test suite only:
+```
+yarn test-holofuel
+```
+#### Prerequisites
+Install dependencies: `yarn install`
+
+Install local tryorama clone at `../tryorama`:
 
 ```
 cd ../tryorama
