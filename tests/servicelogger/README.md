@@ -26,6 +26,6 @@ yarn add ../tryorama
 
 3. Use either a URL for your test DNAs or build them locally on holochain version `dc382be2a8a26d7c345e023cfaa0d8f6181697db`.
  >- For the servicelogger tests, you can use the following url of a compatible version: https://holo-host.github.io/servicelogger-rsm/releases/downloads/0_0_1_alpha10/servicelogger.0_0_1_alpha10.dna
- >- If running the holofuel tests as well, please consult the holofuel README for specifics on version details.  See [tests/holofuel/README.md](/tests/holofuel/)
+ >- If running the holofuel tests as well, please consult the holofuel README for specifics on version and/or test details.  See [tests/holofuel/README.md](/tests/holofuel/)
 
 4. Update the DNAs in `config.yaml` with the path to the DNAs (url or file)
