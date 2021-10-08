@@ -1,5 +1,5 @@
 --- # Test configuration
-  holoportChannel: "916"
+  holoportChannel: "949"
   conductorsPerHoloport: 1
   numTransactions: 24
   fractionOffline: 0.5
@@ -15,13 +15,13 @@
       testDuration: 300000 # 300_000 = 5 mins
   dnas:
     # Note: It's possible to pass { url: '...' } instead of { path: '...' } for uri.
-    - nick: 'holofuel'
-      uri: { path: '../test-dnas/holofuel.dna' }
-      properties:
-        holo_agent_override: 'uhCAkRHEsXSAebzKJtPsLY1XcNePAFIieFBtz2ATanlokxnSC1Kkz'
-        skip_proof: false
+    # - nick: 'holofuel'
+    #   uri: { path: '../test-dnas/holofuel.dna' }
+    #   properties:
+    #     holo_agent_override: 'uhCAkRHEsXSAebzKJtPsLY1XcNePAFIieFBtz2ATanlokxnSC1Kkz'
+    #     skip_proof: false
     - nick: 'servicelogger'
-      uri: { path: '../test-dnas/servicelogger.dna' }
+      uri: { path: './servicelogger.dna' }
       properties:
         bound_happ_id: "uhC0kmrkoAHPVf_eufG7eC5fm6QKrW5pPMoktvG5LOC0SnJ4vV1Uv"
   # disableSsh: true
@@ -36,8 +36,8 @@
     #   error: false
     #   errorMessage: null
     #   timeToGossip: null
-    - name: "2dbk737jjs2vyc1z0w72tmc0i7loprr8tbq6f1yevpms4msytn"
-      zerotierIp: "172.26.201.57"
-      error: false
-      errorMessage: null
-      timeToGossip: null
+    # - name: "2dbk737jjs2vyc1z0w72tmc0i7loprr8tbq6f1yevpms4msytn"
+    #   zerotierIp: "172.26.201.57"
+    #   error: false
+    #   errorMessage: null
+    #   timeToGossip: null
