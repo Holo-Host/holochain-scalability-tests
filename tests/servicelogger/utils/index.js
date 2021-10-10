@@ -1,7 +1,7 @@
 const { Codec } = require('@holo-host/cryptolib')
 const encodeAgentHash =  Codec.AgentId.encode
 const getMockInt = () => Math.floor(Math.random())
-const getTimestamp = () => Date.now() * 1000
+const { getTimestamp } = require('../../utils')
 
 const getSettings = signatory_happ => ({
   // note: using signing agent as both 3rd party (web user) signer and provider pubkey for test simplification purposes only

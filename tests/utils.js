@@ -1,6 +1,7 @@
 const fs = require('fs')
 const YAML = require('yaml')
 const encodeHoloHash = require('@holo-host/cryptolib').Codec.HoloHash.encode
+exports.getTimestamp = () => Date.now() * 1000
 
 exports.parseCfg = () => {
   let fileContents = fs.readFileSync('./tests/config.yaml', 'utf-8')

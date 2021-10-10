@@ -1,7 +1,7 @@
 --- # Test configuration
   holoportChannel: "949"
   conductorsPerHoloport: 1
-  numTransactions: 24
+  numTransactions: 2
   fractionOffline: 0.5
   agentsPerConductor: 3 # SL Context: Number of SL Instances (ie: the number of hosted happs installed on a holoport)
   appSettings:
@@ -15,15 +15,15 @@
       testDuration: 300000 # 300_000 = 5 mins
   dnas:
     # Note: It's possible to pass { url: '...' } instead of { path: '...' } for uri.
-    # - nick: 'holofuel'
-    #   uri: { path: '../test-dnas/holofuel.dna' }
-    #   properties:
-    #     holo_agent_override: 'uhCAkRHEsXSAebzKJtPsLY1XcNePAFIieFBtz2ATanlokxnSC1Kkz'
-    #     skip_proof: false
-    - nick: 'servicelogger'
-      uri: { path: './servicelogger.dna' }
+    - nick: 'holofuel'
+      uri: { path: './holofuel.dna' }
       properties:
-        bound_happ_id: "uhC0kmrkoAHPVf_eufG7eC5fm6QKrW5pPMoktvG5LOC0SnJ4vV1Uv"
+        holo_agent_override: 'uhCAkRHEsXSAebzKJtPsLY1XcNePAFIieFBtz2ATanlokxnSC1Kkz'
+        skip_proof: true
+    # - nick: 'servicelogger'
+    #   uri: { path: './servicelogger.dna' }
+    #   properties:
+    #     bound_happ_id: "uhC0kmrkoAHPVf_eufG7eC5fm6QKrW5pPMoktvG5LOC0SnJ4vV1Uv"
   # disableSsh: true
   holoports:      # list of holoports participating in test
     - name: "rkbpxayrx3b9mrslvp26oz88rw36wzltxaklm00czl5u5mx1w"

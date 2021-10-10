@@ -1,7 +1,7 @@
 const { wait, base64AgentId } = require('../utils')
+const { getTimestamp } = require('../utils')
 
 let agentConsistencyMs = {}
-let mockTimestamp = 0
 
 const resetConsistencyTimes = agents => {
   for (var agentKey in agentConsistencyMs){
@@ -19,8 +19,8 @@ const sendTransaction = async (sender, receiver) => {
   const payload = {
     receiver: base64AgentId(receiver),
     amount: '1',
-    timestamp: [mockTimestamp++, 0],
-    expiration_date: [Number.MAX_SAFE_INTEGER, 0]
+    timestamp: getTimestamp(),
+    expiration_date: Number.MAX_SAFE_INTEGER
   }
 
   const agentConsistencyDelay = 5_000
@@ -44,7 +44,7 @@ const sendTransaction = async (sender, receiver) => {
 const acceptTransaction = async (receiver, transaction) => {
   const payload = {
     address: transaction.id,
-    timestamp: [mockTimestamp++, 0]
+    timestamp: getTimestamp()
   }
 
   const agentConsistencyDelay = 5_000
