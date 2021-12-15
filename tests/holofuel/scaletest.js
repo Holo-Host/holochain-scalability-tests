@@ -17,6 +17,7 @@ const {
   getFinalState
 } = require('./transactions')
 const { sum, mean } = require('lodash')
+const { getTimestamp } = require('../utils')
 
 describe('Holofuel DNA', async () => {
   let agents
@@ -104,8 +105,8 @@ describe('Holofuel DNA', async () => {
           const payload = {
             receiver: base64AgentId(counterparty),
             amount: '1',
-            timestamp: [0, 0],
-            expiration_date: [Number.MAX_SAFE_INTEGER, 0]
+            timestamp: getTimestamp(),
+            expiration_date: Number.MAX_SAFE_INTEGER
           }
 
           let foundAgent = false
@@ -141,7 +142,7 @@ describe('Holofuel DNA', async () => {
     const accept = async (receiver, id) => {
       await receiver.cells[0].call('transactor', 'accept_transaction', {
         address: id,
-        timestamp: [0, 0]
+        timestamp: getTimestamp()
       })
       incrementAccepted()
     }

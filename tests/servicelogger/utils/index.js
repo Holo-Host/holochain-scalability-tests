@@ -1,7 +1,7 @@
 const { Codec } = require('@holo-host/cryptolib')
 const encodeAgentHash =  Codec.AgentId.encode
-const getTimestamp = () => [Math.floor(new Date().getTime() / 1000), 0]
 const getMockInt = () => Math.floor(Math.random())
+const { getTimestamp } = require('../../utils')
 
 const getSettings = signatory_happ => ({
   // note: using signing agent as both 3rd party (web user) signer and provider pubkey for test simplification purposes only
@@ -10,7 +10,7 @@ const getSettings = signatory_happ => ({
   price_compute: getMockInt(),
   price_bandwidth: getMockInt(),
   price_storage: getMockInt(),
-  max_time_before_invoice: getTimestamp()
+  max_time_before_invoice: [604800, 0]
 })
 
 const getDiskUsage = host_happs => {
