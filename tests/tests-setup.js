@@ -173,11 +173,11 @@ exports.installAgents = async (s, testNicks) => {
       if (testNicks.includes('servicelogger')) {
         // add signator conductor to each holoport when running servicelogger tests
         console.log('Adding a servicelogger signing agent conductor to holoport:', hp.zerotierIp)
-        configs = Array.from({ length: cfg.conductorsPerHoloport + 1 }, () => // 1 more per each holoport in array
+        configs = Array.from({ length: cfg.testSettings.conductorsPerHoloport + 1 }, () => // 1 more per each holoport in array
           tryorama.Config.gen({ network: defaultTryoramaNetworkConfig })
         )
       } else {
-        configs = Array.from({ length: cfg.conductorsPerHoloport }, () =>
+        configs = Array.from({ length: cfg.testSettings.conductorsPerHoloport }, () =>
           tryorama.Config.gen({ network: defaultTryoramaNetworkConfig })
         )
       }
@@ -203,20 +203,20 @@ exports.installAgents = async (s, testNicks) => {
 const installHappsForPlayer = async (
   player,
   playerIdx,
-  { agentsPerConductor: count, dnas: cfgDnas },
+  { testSettings: { agentsPerConductor: count }, dnas: cfgDnas },
   testNicks = []
 ) => {
   let testDnas = []
   if (testNicks.length === 0) {
     console.warn('No DNA nickname was specified for current test, all apps in config will now be installed.')
-    testDnas  = cfgDnas
+    testDnas = cfgDnas
   } else {
-    testDnas = cfgDnas.filter(dna => testNicks.includes(dna.nick))
+    testDnas = cfgDnas.filter(dna => testNicks.includes(dna.role_id))
     if (testDnas.length === 0) {
-      throw new Error('Failed to intall happ for test player - no DNA found with provided nick.')
+      throw new Error('Failed to intall happ for test player - no DNA found with provided role_id.')
     }
     // limit only one agent for the add'l SL signator conductors (one per holoport)
-    if (playerIdx%(cfg.holoports.length * (cfg.conductorsPerHoloport + 1)/cfg.holoports.length) === 0 && testDnas.some(({ nick }) => nick === 'servicelogger')) {
+    if (playerIdx % (cfg.holoports.length * (cfg.testSettings.conductorsPerHoloport + 1) / cfg.holoports.length) === 0 && testDnas.some(({ role_id }) => role_id === 'servicelogger')) {
       count = 1
     }
   }
@@ -225,10 +225,10 @@ const installHappsForPlayer = async (
   for (let dna of testDnas) {
     const dnaHash = await player.registerDna(dna.uri, null, dna.properties)
     dnas.push({
-      nick: dna.nick,
+      role_id: dna.role_id,
       hash: dnaHash,
       membrane_proof: null
-    })                                       
+    })
   }
 
   // Must be sequential due to a bug in holochain

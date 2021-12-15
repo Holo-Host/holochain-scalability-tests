@@ -158,7 +158,7 @@ describe('Holofuel DNA', async () => {
         const promise = promise_actionable[i]
         try {
           await accept(receiver, promise.id)
-        } catch (e) {}
+        } catch (e) { }
       }
 
       return promise_actionable.length
@@ -223,7 +223,7 @@ describe('Holofuel DNA', async () => {
       title: 'reaches consistency after many agents all send to every other agent concurrently',
       logs: [
         `Total Holoports\t${cfg.holoports.length}`,
-        `Total Conductors\t${cfg.holoports.length * cfg.conductorsPerHoloport}`,
+        `Total Conductors\t${cfg.holoports.length * cfg.testSettings.conductorsPerHoloport}`,
         `Total Agents\t${agents.length}`,
         `Total Promises Created\t${totalAccepted}`,
         `Time Waiting for Agent Consistency (Min)\t${presentDuration(
@@ -250,7 +250,7 @@ describe('Holofuel DNA', async () => {
   })
 
   it('measures timing for random p2p transactions with parallel acceptance', async () => {
-    const { numTransactions } = cfg
+    const { numTransactions } = cfg.appSettings
 
     let totalAccepted = 0
 
@@ -309,17 +309,17 @@ describe('Holofuel DNA', async () => {
         `Total Agents\t${agents.length}`,
         `Total Promises Created\t${numTransactions}`,
         `Time Waiting for Agent Consistency (Min)\t${presentDuration(
-              Math.min(...Object.values(agentConsistencyMs))
-            )}`,
+          Math.min(...Object.values(agentConsistencyMs))
+        )}`,
         `Time Waiting for Agent Consistency (Max)\t${presentDuration(
-              Math.max(...Object.values(agentConsistencyMs))
-            )}`,
+          Math.max(...Object.values(agentConsistencyMs))
+        )}`,
         `Time Waiting for Agent Consistency (Avg)\t${presentDuration(
-              mean(Object.values(agentConsistencyMs))
-            )}`,
+          mean(Object.values(agentConsistencyMs))
+        )}`,
         `Time Taken to Create And Accept Promises (incl. Agent Consistency)\t${presentDuration(
-              finishedSending - timeStarted
-            )}`,
+          finishedSending - timeStarted
+        )}`,
         `Time Waiting for Transactions to be Completed\t${presentDuration(finishedAll - finishedSending)}`,
         `Total time taken\t${presentDuration(finishedAll - timeStarted)}`
       ]
@@ -330,7 +330,7 @@ describe('Holofuel DNA', async () => {
   })
 
   it('measures timing for random p2p transactions with serial acceptance', async () => {
-    const { numTransactions } = cfg
+    const { numTransactions } = cfg.appSettings
 
     let totalAccepted = 0
 
@@ -402,17 +402,17 @@ describe('Holofuel DNA', async () => {
         `Total Agents\t${agents.length}`,
         `Total Promises Created\t${numTransactions}`,
         `Time Waiting for Agent Consistency (Min)\t${presentDuration(
-              Math.min(...Object.values(agentConsistencyMs))
-            )}`,
+          Math.min(...Object.values(agentConsistencyMs))
+        )}`,
         `Time Waiting for Agent Consistency (Max)\t${presentDuration(
-              Math.max(...Object.values(agentConsistencyMs))
-            )}`,
+          Math.max(...Object.values(agentConsistencyMs))
+        )}`,
         `Time Waiting for Agent Consistency (Avg)\t${presentDuration(
-              mean(Object.values(agentConsistencyMs))
-            )}`,
+          mean(Object.values(agentConsistencyMs))
+        )}`,
         `Time Taken to Create Promises (incl. Agent Consistency)\t${presentDuration(
-              finishedSending - timeStarted
-            )}`,
+          finishedSending - timeStarted
+        )}`,
         `Time Taken to Accept Promises (incl. Agent Consistency)\t${presentDuration(
           finishedAccepting - finishedSending
         )}`,
@@ -428,7 +428,7 @@ describe('Holofuel DNA', async () => {
   it('measures timing for random p2p transactions with serial acceptance and some senders offline', async () => {
     const getPlayerIdx = appId => Number(appId.match(/^p([0-9]*)a/)[1])
 
-    const { numTransactions, fractionOffline } = cfg
+    const { numTransactions, fractionOffline } = cfg.appSettings
     const activationDelay = 2_000
 
     const numSenders = Math.floor(agents.length / 2)

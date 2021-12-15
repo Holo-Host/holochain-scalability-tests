@@ -34,14 +34,14 @@ describe('Servicelogger DNA', async () => {
     orchestrator.run()
     s = await scenarioPromise
 
-    testTimeout = cfg.appSettings.servicelogger.testDuration
-    activityLoggingInterval = cfg.appSettings.servicelogger.activityLoggingInterval
-    diskUsageLoggingInterval = cfg.appSettings.servicelogger.diskUsageLoggingInterval
-    
+    testTimeout = cfg.appTestSettings.testDuration
+    activityLoggingInterval = cfg.appTestSettings.activityLoggingInterval
+    diskUsageLoggingInterval = cfg.appTestSettings.diskUsageLoggingInterval
+
     const { agents: testHapps } = await installAgents(s, 'servicelogger')
     const signatoryHappIndices = []
-    signatoryHapps = testHapps.filter((_,i) => {
-      if (i%(testHapps.length/cfg.holoports.length) === 0) {
+    signatoryHapps = testHapps.filter((_, i) => {
+      if (i % (testHapps.length / cfg.holoports.length) === 0) {
         signatoryHappIndices.push(i)
         return true
       }
@@ -60,14 +60,14 @@ describe('Servicelogger DNA', async () => {
     }
   })
   afterEach(() => endScenario())
-  
+
   it('logs the service activity and disk usage for set interval', async () => {
-    if ( activityLoggingInterval > testTimeout || diskUsageLoggingInterval > testTimeout) {
+    if (activityLoggingInterval > testTimeout || diskUsageLoggingInterval > testTimeout) {
       throw new Error('Provided test duration is not longer than duration of logging intervals.\nPlease revisit the testing config and correct provided lengths (in ms).')
     }
-    const totalExpectedActivityLogCount = Math.ceil(testTimeout/activityLoggingInterval) * hostedHappSLs.length
+    const totalExpectedActivityLogCount = Math.ceil(testTimeout / activityLoggingInterval) * hostedHappSLs.length
     const completedActivityLogPerAgent = {}
-    const totalExpectedDiskLogEventCount = Math.ceil(testTimeout/diskUsageLoggingInterval) * hostedHappSLs.length
+    const totalExpectedDiskLogEventCount = Math.ceil(testTimeout / diskUsageLoggingInterval) * hostedHappSLs.length
     const completedDiskLogEventsPerAgent = {}
 
     const callZome = async (hostHapp, logList, zomeFnName, paramFn, paramFnArgs) => {
@@ -80,7 +80,7 @@ describe('Servicelogger DNA', async () => {
       const agentIdx = hostedHappSLs.indexOf(hostHapp)
       try {
         if (paramFnArgs === signatoryHapps) {
-          const hostIndex = Math.floor(agentIdx/(cfg.agentsPerConductor * cfg.conductorsPerHoloport))
+          const hostIndex = Math.floor(agentIdx / (cfg.testSettings.agentsPerConductor * cfg.testSettings.conductorsPerHoloport))
           paramFnArgs = signatoryHapps[hostIndex]
         }
         const params = await paramFn(paramFnArgs)
@@ -109,11 +109,11 @@ describe('Servicelogger DNA', async () => {
     const startTestTime = Date.now()
     do {
       const loopDate = Date.now()
-      if ((loopDate - startTestTime)%activityLoggingInterval === 0) {
-        await Promise.all(hostedHappSLs.map(hh => callZome(hh, completedActivityLogPerAgent, 'log_activity', getActivityLog, signatoryHapps)) )
+      if ((loopDate - startTestTime) % activityLoggingInterval === 0) {
+        await Promise.all(hostedHappSLs.map(hh => callZome(hh, completedActivityLogPerAgent, 'log_activity', getActivityLog, signatoryHapps)))
       }
-      if ((loopDate - startTestTime)%diskUsageLoggingInterval === 0) {
-        await Promise.all(hostedHappSLs.map(hh => callZome(hh, completedDiskLogEventsPerAgent, 'log_disk_usage', getDiskUsage, hostedHappSLs)) )
+      if ((loopDate - startTestTime) % diskUsageLoggingInterval === 0) {
+        await Promise.all(hostedHappSLs.map(hh => callZome(hh, completedDiskLogEventsPerAgent, 'log_disk_usage', getDiskUsage, hostedHappSLs)))
       }
     } while (Date.now() - startTestTime < (testTimeout - 100))
 
@@ -121,8 +121,8 @@ describe('Servicelogger DNA', async () => {
     const totalCompletedDiskLogEventCount = accumulate(getNestedLogValue(completedDiskLogEventsPerAgent, 'count'))
     const totalCompletedActivityErrorCount = getNestedLogValue(completedActivityLogPerAgent, 'error', { all: true }).filter(el => el !== null).length
     const totalCompletedDiskLogErrorCount = getNestedLogValue(completedDiskLogEventsPerAgent, 'error', { all: true }).filter(el => el !== null).length
-    const avgActivityLogCallDuration = Math.round(getNestedLogValue(completedActivityLogPerAgent, 'duration', { all: true }).reduce((acc, t) => acc + t, 0)/hostedHappSLs.length)
-    const avgDiskLogCallDuration = Math.round(getNestedLogValue(completedDiskLogEventsPerAgent, 'duration', { all: true }).reduce((acc, t) => acc + t, 0)/hostedHappSLs.length)
+    const avgActivityLogCallDuration = Math.round(getNestedLogValue(completedActivityLogPerAgent, 'duration', { all: true }).reduce((acc, t) => acc + t, 0) / hostedHappSLs.length)
+    const avgDiskLogCallDuration = Math.round(getNestedLogValue(completedDiskLogEventsPerAgent, 'duration', { all: true }).reduce((acc, t) => acc + t, 0) / hostedHappSLs.length)
 
     // log outcomes in terminal
     console.table(
@@ -130,8 +130,8 @@ describe('Servicelogger DNA', async () => {
         '-': '-',
         'Test Duration': presentDuration(testTimeout),
         'Number Holoports': cfg.holoports.length,
-        'Number Agents/Host Conductor': cfg.agentsPerConductor,
-        'Total Host Conductors': cfg.holoports.length * cfg.conductorsPerHoloport,
+        'Number Agents/Host Conductor': cfg.testSettings.agentsPerConductor,
+        'Total Host Conductors': cfg.holoports.length * cfg.testSettings.conductorsPerHoloport,
         'Total Hosted Agents': hostedHappSLs.length,
         'Total Signatory Conductors (x1/Holoport)': signatoryHapps.length,
         'Total Signatory Agents (x1/Signatory Conductor)': signatoryHapps.length,
@@ -168,8 +168,12 @@ describe('Servicelogger DNA', async () => {
       this['First Disk Usage Log Error(ms)'] = agentDiskUsageErrorCount[0] ? Math.floor(agentDiskUsageErrorCount[0].time) : 'N/A'
     }
     console.table(hostedHappSLs.map(hostedHappSL => new AgentRecord(hostedHappSL.agent)))
-    
+
     // test whether expected number of tests were run and all passed
+    console.log(">>>>>>>>>>>", totalExpectedActivityLogCount);
+    console.log(">>>>>>>>>>>", totalCompletedActivityLogCount);
+    console.log(">>>>>>>>>>>", totalExpectedDiskLogEventCount);
+    console.log(">>>>>>>>>>>", totalCompletedDiskLogEventCount);
     expect(totalExpectedActivityLogCount).to.equal(totalCompletedActivityLogCount)
     expect(totalCompletedActivityErrorCount).to.equal(0)
     expect(totalExpectedDiskLogEventCount).to.equal(totalCompletedDiskLogEventCount)
