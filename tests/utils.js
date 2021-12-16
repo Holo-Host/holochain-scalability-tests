@@ -9,6 +9,11 @@ exports.parseCfg = () => {
   return YAML.parse(fileContents)
 }
 
+exports.parseHoloCfg = () => {
+  let fileContents = fs.readFileSync('./tests/holo-config.yaml', 'utf-8')
+  return YAML.parse(fileContents)
+}
+
 exports.delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 exports.getNestedLogValue = (arr, value, opts = {}) => {

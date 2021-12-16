@@ -6,7 +6,7 @@ const _ = require('lodash')
 const { inspect } = require('util')
 const encodeAgentHash = Codec.AgentId.encode
 const { setUpHoloports, restartTrycp, installAgents } = require('../tests-setup')
-const { parseCfg, presentDuration, presentFrequency, getNestedLogValue, accumulate, displaylast6 } = require('../utils')
+const { parseCfg, parseHoloCfg, presentDuration, presentFrequency, getNestedLogValue, accumulate, displaylast6 } = require('../utils')
 const { getActivityLog, getDiskUsage, getSettings } = require('./utils/index')
 
 describe('Servicelogger DNA', async () => {
@@ -14,6 +14,7 @@ describe('Servicelogger DNA', async () => {
   before(async () => {
     await setUpHoloports()
     cfg = parseCfg()
+    holo_cfg = parseHoloCfg()
   })
   beforeEach(async () => {
     await restartTrycp()
@@ -41,7 +42,7 @@ describe('Servicelogger DNA', async () => {
     const { agents: testHapps } = await installAgents(s, 'servicelogger')
     const signatoryHappIndices = []
     signatoryHapps = testHapps.filter((_, i) => {
-      if (i % (testHapps.length / cfg.holoports.length) === 0) {
+      if (i % (testHapps.length / holo_cfg.holoports.length) === 0) {
         signatoryHappIndices.push(i)
         return true
       }
@@ -129,9 +130,9 @@ describe('Servicelogger DNA', async () => {
       {
         '-': '-',
         'Test Duration': presentDuration(testTimeout),
-        'Number Holoports': cfg.holoports.length,
+        'Number Holoports': holo_cfg.holoports.length,
         'Number Agents/Host Conductor': cfg.testSettings.agentsPerConductor,
-        'Total Host Conductors': cfg.holoports.length * cfg.testSettings.conductorsPerHoloport,
+        'Total Host Conductors': holo_cfg.holoports.length * cfg.testSettings.conductorsPerHoloport,
         'Total Hosted Agents': hostedHappSLs.length,
         'Total Signatory Conductors (x1/Holoport)': signatoryHapps.length,
         'Total Signatory Agents (x1/Signatory Conductor)': signatoryHapps.length,
@@ -170,10 +171,6 @@ describe('Servicelogger DNA', async () => {
     console.table(hostedHappSLs.map(hostedHappSL => new AgentRecord(hostedHappSL.agent)))
 
     // test whether expected number of tests were run and all passed
-    console.log(">>>>>>>>>>>", totalExpectedActivityLogCount);
-    console.log(">>>>>>>>>>>", totalCompletedActivityLogCount);
-    console.log(">>>>>>>>>>>", totalExpectedDiskLogEventCount);
-    console.log(">>>>>>>>>>>", totalCompletedDiskLogEventCount);
     expect(totalExpectedActivityLogCount).to.equal(totalCompletedActivityLogCount)
     expect(totalCompletedActivityErrorCount).to.equal(0)
     expect(totalExpectedDiskLogEventCount).to.equal(totalCompletedDiskLogEventCount)

@@ -1,5 +1,4 @@
 --- # Test configuration
-holoportChannel: "develop"
 dnas:
   # Note: It's possible to pass { url: '...' } instead of { path: '...' } for uri.
   - role_id: "holofuel"
@@ -7,23 +6,6 @@ dnas:
     properties:
       holo_agent_override: "uhCAkRHEsXSAebzKJtPsLY1XcNePAFIieFBtz2ATanlokxnSC1Kkz"
       skip_proof: true
-# disableSsh: true
-holoports: # list of holoports participating in test
-  # - name: "rkbpxayrx3b9mrslvp26oz88rw36wzltxaklm00czl5u5mx1w"
-  #   zerotierIp: "172.26.235.20"
-  #   error: false
-  #   errorMessage: null
-  #   timeToGossip: null
-  # - name: "3mxb6dep80b24vwpdkyas7l8s7jg373d27kbbi61tavegtlfv0"
-  #   zerotierIp: "172.26.14.210"
-  #   error: false
-  #   errorMessage: null
-  #   timeToGossip: null
-  - name: "2dbk737jjs2vyc1z0w72tmc0i7loprr8tbq6f1yevpms4msytn"
-    zerotierIp: "172.26.201.57"
-    error: false
-    errorMessage: null
-    timeToGossip: null
 testSettings:
   conductorsPerHoloport: 1
   agentsPerConductor: 3 # SL Context: Number of SL Instances (ie: the number of hosted happs installed on a holoport)

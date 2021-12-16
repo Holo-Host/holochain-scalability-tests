@@ -2,12 +2,12 @@ const util = require('util')
 const exec = util.promisify(require('child_process').exec)
 const tryorama = require('@holochain/tryorama')
 
-const { parseCfg } = require('./utils')
+const { parseCfg, parseHoloCfg } = require('./utils')
 const memProofJSON = require('./memproofs').memproofs
 
 // module's globals to hold state internally
 let cfg = parseCfg()
-let testResults = {}
+let holo_cfg = parseHoloCfg()
 
 const defaultTryoramaNetworkConfig = {
   bootstrap_service: 'https://bootstrap-staging.holo.host',
@@ -99,18 +99,18 @@ const defaultTryoramaNetworkConfig = {
 /**
  * Loop through all holoports and run reset-holoport.sh on them.
  * Check status, if 0 print ok message, if not 0 print ERROR and remove from cfg
- * @param {object} cfg - test configuration containing list of holoports to reset
+ * @param {object} holo_cfg - test configuration containing list of holoports to reset
  * @returns {object} - new test configuration
  */
-const resetHoloports = async cfg => {
-  if (cfg.disableSsh) {
+const resetHoloports = async holo_cfg => {
+  if (holo_cfg.disableSsh) {
     return
   }
   console.log(`\nResetting holoports participating in test`)
 
-  const calls = cfg.holoports.map(hp => {
+  const calls = holo_cfg.holoports.map(hp => {
     return exec(
-      `./scripts/reset-holoport.sh ${hp.zerotierIp} ${cfg.holoportChannel}`,
+      `./scripts/reset-holoport.sh ${hp.zerotierIp} ${holo_cfg.holoportChannel}`,
       { timeout: 300_000 }
     )
   })
@@ -119,16 +119,16 @@ const resetHoloports = async cfg => {
   results.map((result, i) => {
     if (result.status == 'rejected') {
       console.log(
-        `${cfg.holoports[i].zerotierIp}: ERROR: failed to reset, removing from test`
+        `${holo_cfg.holoports[i].zerotierIp}: ERROR: failed to reset, removing from test`
       )
-      cfg.holoports[i].error = true
-      cfg.holoports[i].errorMessage = `failed to reset holoport`
+      holo_cfg.holoports[i].error = true
+      holo_cfg.holoports[i].errorMessage = `failed to reset holoport`
     } else if (result.status == 'fulfilled') {
-      console.log(`${cfg.holoports[i].zerotierIp}: ✔`)
+      console.log(`${holo_cfg.holoports[i].zerotierIp}: ✔`)
     }
   })
 
-  return cfg
+  return holo_cfg
 }
 
 /**
@@ -141,21 +141,21 @@ const holoportTest = cfg => {
 }
 
 exports.setUpHoloports = async () => {
-  cfg = await resetHoloports(cfg)
-  console.log("Starting Configuration : ", cfg)
-  if (!holoportTest(cfg))
+  holo_cfg = await resetHoloports(holo_cfg)
+  console.log("Starting Configuration : ", holo_cfg)
+  if (!holoportTest(holo_cfg))
     throw new Error(
       `None of the holoports was set up successfully - aborting test`
     )
 }
 
 exports.restartTrycp = async () => {
-  if (cfg.disableSsh) {
+  if (holo_cfg.disableSsh) {
     return
   }
   console.log(`\nRestarting trycp on holoports`)
   await Promise.all(
-    cfg.holoports.map(async hp => {
+    holo_cfg.holoports.map(async hp => {
       await exec(`./scripts/restart-trycp.sh ${hp.zerotierIp}`, {
         timeout: 300_000
       })
@@ -169,7 +169,7 @@ exports.installAgents = async (s, testNicks) => {
   console.log(`\nInstalling agents`)
   let configs
   const playersPerHp = await Promise.all(
-    cfg.holoports.map(hp => {
+    holo_cfg.holoports.map(hp => {
       if (testNicks.includes('servicelogger')) {
         // add signator conductor to each holoport when running servicelogger tests
         console.log('Adding a servicelogger signing agent conductor to holoport:', hp.zerotierIp)
@@ -216,7 +216,7 @@ const installHappsForPlayer = async (
       throw new Error('Failed to intall happ for test player - no DNA found with provided role_id.')
     }
     // limit only one agent for the add'l SL signator conductors (one per holoport)
-    if (playerIdx % (cfg.holoports.length * (cfg.testSettings.conductorsPerHoloport + 1) / cfg.holoports.length) === 0 && testDnas.some(({ role_id }) => role_id === 'servicelogger')) {
+    if (playerIdx % (holo_cfg.holoports.length * (cfg.testSettings.conductorsPerHoloport + 1) / holo_cfg.holoports.length) === 0 && testDnas.some(({ role_id }) => role_id === 'servicelogger')) {
       count = 1
     }
   }

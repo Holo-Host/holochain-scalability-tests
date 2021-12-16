@@ -5,7 +5,7 @@ const {
   installAgents
 } = require('../tests-setup')
 const tryorama = require('@holochain/tryorama')
-const { parseCfg, presentDuration, wait, base64AgentId } = require('../utils')
+const { parseCfg, parseHoloCfg, presentDuration, wait, base64AgentId } = require('../utils')
 const {
   resetConsistencyTimes,
   agentConsistencyMs,
@@ -30,6 +30,7 @@ describe('Holofuel DNA', async () => {
   before(async () => {
     await setUpHoloports()
     cfg = parseCfg()
+    holo_cfg = parseHoloCfg()
   })
 
   beforeEach(async () => {
@@ -222,8 +223,8 @@ describe('Holofuel DNA', async () => {
     results.push({
       title: 'reaches consistency after many agents all send to every other agent concurrently',
       logs: [
-        `Total Holoports\t${cfg.holoports.length}`,
-        `Total Conductors\t${cfg.holoports.length * cfg.testSettings.conductorsPerHoloport}`,
+        `Total Holoports\t${holo_cfg.holoports.length}`,
+        `Total Conductors\t${holo_cfg.holoports.length * cfg.testSettings.conductorsPerHoloport}`,
         `Total Agents\t${agents.length}`,
         `Total Promises Created\t${totalAccepted}`,
         `Time Waiting for Agent Consistency (Min)\t${presentDuration(
