@@ -88,7 +88,7 @@ describe('Holofuel DNA', async () => {
     let totalAccepted = 0
     const agentConsistencyMs = agents.map(() => 0)
     const totalExpected =
-      agents.length * (agents.length - 1) * cfg.appSettings.holofuel.promisesPerAgentPerPeer
+      agents.length * (agents.length - 1) * cfg.appTestSettings.holofuel.promisesPerAgentPerPeer
 
     const sendAllPeers = async (agent, agentIdx) => {
       for (
@@ -100,7 +100,7 @@ describe('Holofuel DNA', async () => {
           agents[(agentIdx + counterpartyOffset) % agents.length]
         for (
           let promiseIdx = 0;
-          promiseIdx < cfg.appSettings.holofuel.promisesPerAgentPerPeer;
+          promiseIdx < cfg.appTestSettings.holofuel.promisesPerAgentPerPeer;
           promiseIdx++
         ) {
           const payload = {
@@ -251,7 +251,7 @@ describe('Holofuel DNA', async () => {
   })
 
   it('measures timing for random p2p transactions with parallel acceptance', async () => {
-    const { numTransactions } = cfg.appSettings
+    const { numTransactions } = cfg.appTestSettings
 
     let totalAccepted = 0
 
@@ -331,7 +331,7 @@ describe('Holofuel DNA', async () => {
   })
 
   it('measures timing for random p2p transactions with serial acceptance', async () => {
-    const { numTransactions } = cfg.appSettings
+    const { numTransactions } = cfg.appTestSettings
 
     let totalAccepted = 0
 
@@ -429,7 +429,7 @@ describe('Holofuel DNA', async () => {
   it('measures timing for random p2p transactions with serial acceptance and some senders offline', async () => {
     const getPlayerIdx = appId => Number(appId.match(/^p([0-9]*)a/)[1])
 
-    const { numTransactions, fractionOffline } = cfg.appSettings
+    const { numTransactions, fractionOffline } = cfg.appTestSettings
     const activationDelay = 2_000
 
     const numSenders = Math.floor(agents.length / 2)
