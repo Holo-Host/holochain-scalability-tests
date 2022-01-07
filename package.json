@@ -8,12 +8,12 @@
   "license": "MIT",
   "scripts": {
     "test": "TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 mocha --timeout 0 --recursive tests",
-    "test-holofuel": "TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 mocha --timeout 0 --recursive tests/holofuel",
-    "test-servicelogger": "TRYORAMA_LOG_LEVEL=0 TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 mocha --timeout 0 --recursive tests/servicelogger"
+    "test-holofuel": "TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 TEST_CONFIG='./tests/holofuel/config.yaml' mocha --timeout 0 --recursive tests/holofuel",
+    "test-servicelogger": "TRYORAMA_LOG_LEVEL=0 TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 TEST_CONFIG='./tests/servicelogger/config.yaml' mocha --timeout 0 --recursive tests/servicelogger"
   },
   "devDependencies": {
     "@holo-host/cryptolib": "^0.3.0",
-    "@holochain/tryorama": "^0.4.5",
+    "@holochain/tryorama": "^0.4.6",
     "chai": "^4.3.4",
     "lodash": "^4.17.21",
     "mocha": "^9.0.2"

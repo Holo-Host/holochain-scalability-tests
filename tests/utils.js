@@ -3,8 +3,14 @@ const YAML = require('yaml')
 const encodeHoloHash = require('@holo-host/cryptolib').Codec.HoloHash.encode
 exports.getTimestamp = () => Date.now() * 1000
 
+
 exports.parseCfg = () => {
-  let fileContents = fs.readFileSync('./tests/config.yaml', 'utf-8')
+  let fileContents = fs.readFileSync(process.env.TEST_CONFIG, 'utf-8')
+  return YAML.parse(fileContents)
+}
+
+exports.parseHoloCfg = () => {
+  let fileContents = fs.readFileSync('./tests/holo-config.yaml', 'utf-8')
   return YAML.parse(fileContents)
 }
 
@@ -17,7 +23,7 @@ exports.getNestedLogValue = (arr, value, opts = {}) => {
       const recordList = valueRecords.map(record => record[value])
       return recordList
     } else {
-      return valueRecords[valueRecords.length-1][value]
+      return valueRecords[valueRecords.length - 1][value]
     }
   })
 }

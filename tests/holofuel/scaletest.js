@@ -5,7 +5,7 @@ const {
   installAgents
 } = require('../tests-setup')
 const tryorama = require('@holochain/tryorama')
-const { parseCfg, presentDuration, wait, base64AgentId } = require('../utils')
+const { parseCfg, parseHoloCfg, presentDuration, wait, base64AgentId } = require('../utils')
 const {
   resetConsistencyTimes,
   agentConsistencyMs,
@@ -30,6 +30,7 @@ describe('Holofuel DNA', async () => {
   before(async () => {
     await setUpHoloports()
     cfg = parseCfg()
+    holo_cfg = parseHoloCfg()
   })
 
   beforeEach(async () => {
@@ -87,7 +88,7 @@ describe('Holofuel DNA', async () => {
     let totalAccepted = 0
     const agentConsistencyMs = agents.map(() => 0)
     const totalExpected =
-      agents.length * (agents.length - 1) * cfg.appSettings.holofuel.promisesPerAgentPerPeer
+      agents.length * (agents.length - 1) * cfg.appTestSettings.holofuel.promisesPerAgentPerPeer
 
     const sendAllPeers = async (agent, agentIdx) => {
       for (
@@ -99,7 +100,7 @@ describe('Holofuel DNA', async () => {
           agents[(agentIdx + counterpartyOffset) % agents.length]
         for (
           let promiseIdx = 0;
-          promiseIdx < cfg.appSettings.holofuel.promisesPerAgentPerPeer;
+          promiseIdx < cfg.appTestSettings.holofuel.promisesPerAgentPerPeer;
           promiseIdx++
         ) {
           const payload = {
@@ -158,7 +159,7 @@ describe('Holofuel DNA', async () => {
         const promise = promise_actionable[i]
         try {
           await accept(receiver, promise.id)
-        } catch (e) {}
+        } catch (e) { }
       }
 
       return promise_actionable.length
@@ -222,8 +223,8 @@ describe('Holofuel DNA', async () => {
     results.push({
       title: 'reaches consistency after many agents all send to every other agent concurrently',
       logs: [
-        `Total Holoports\t${cfg.holoports.length}`,
-        `Total Conductors\t${cfg.holoports.length * cfg.conductorsPerHoloport}`,
+        `Total Holoports\t${holo_cfg.holoports.length}`,
+        `Total Conductors\t${holo_cfg.holoports.length * cfg.testSettings.conductorsPerHoloport}`,
         `Total Agents\t${agents.length}`,
         `Total Promises Created\t${totalAccepted}`,
         `Time Waiting for Agent Consistency (Min)\t${presentDuration(
@@ -250,7 +251,7 @@ describe('Holofuel DNA', async () => {
   })
 
   it('measures timing for random p2p transactions with parallel acceptance', async () => {
-    const { numTransactions } = cfg
+    const { numTransactions } = cfg.appTestSettings
 
     let totalAccepted = 0
 
@@ -309,17 +310,17 @@ describe('Holofuel DNA', async () => {
         `Total Agents\t${agents.length}`,
         `Total Promises Created\t${numTransactions}`,
         `Time Waiting for Agent Consistency (Min)\t${presentDuration(
-              Math.min(...Object.values(agentConsistencyMs))
-            )}`,
+          Math.min(...Object.values(agentConsistencyMs))
+        )}`,
         `Time Waiting for Agent Consistency (Max)\t${presentDuration(
-              Math.max(...Object.values(agentConsistencyMs))
-            )}`,
+          Math.max(...Object.values(agentConsistencyMs))
+        )}`,
         `Time Waiting for Agent Consistency (Avg)\t${presentDuration(
-              mean(Object.values(agentConsistencyMs))
-            )}`,
+          mean(Object.values(agentConsistencyMs))
+        )}`,
         `Time Taken to Create And Accept Promises (incl. Agent Consistency)\t${presentDuration(
-              finishedSending - timeStarted
-            )}`,
+          finishedSending - timeStarted
+        )}`,
         `Time Waiting for Transactions to be Completed\t${presentDuration(finishedAll - finishedSending)}`,
         `Total time taken\t${presentDuration(finishedAll - timeStarted)}`
       ]
@@ -330,7 +331,7 @@ describe('Holofuel DNA', async () => {
   })
 
   it('measures timing for random p2p transactions with serial acceptance', async () => {
-    const { numTransactions } = cfg
+    const { numTransactions } = cfg.appTestSettings
 
     let totalAccepted = 0
 
@@ -402,17 +403,17 @@ describe('Holofuel DNA', async () => {
         `Total Agents\t${agents.length}`,
         `Total Promises Created\t${numTransactions}`,
         `Time Waiting for Agent Consistency (Min)\t${presentDuration(
-              Math.min(...Object.values(agentConsistencyMs))
-            )}`,
+          Math.min(...Object.values(agentConsistencyMs))
+        )}`,
         `Time Waiting for Agent Consistency (Max)\t${presentDuration(
-              Math.max(...Object.values(agentConsistencyMs))
-            )}`,
+          Math.max(...Object.values(agentConsistencyMs))
+        )}`,
         `Time Waiting for Agent Consistency (Avg)\t${presentDuration(
-              mean(Object.values(agentConsistencyMs))
-            )}`,
+          mean(Object.values(agentConsistencyMs))
+        )}`,
         `Time Taken to Create Promises (incl. Agent Consistency)\t${presentDuration(
-              finishedSending - timeStarted
-            )}`,
+          finishedSending - timeStarted
+        )}`,
         `Time Taken to Accept Promises (incl. Agent Consistency)\t${presentDuration(
           finishedAccepting - finishedSending
         )}`,
@@ -428,7 +429,7 @@ describe('Holofuel DNA', async () => {
   it('measures timing for random p2p transactions with serial acceptance and some senders offline', async () => {
     const getPlayerIdx = appId => Number(appId.match(/^p([0-9]*)a/)[1])
 
-    const { numTransactions, fractionOffline } = cfg
+    const { numTransactions, fractionOffline } = cfg.appTestSettings
     const activationDelay = 2_000
 
     const numSenders = Math.floor(agents.length / 2)

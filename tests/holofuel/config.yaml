@@ -1,0 +1,16 @@
+--- # Test configuration
+dnas:
+  # Note: It's possible to pass { url: '...' } instead of { path: '...' } for uri.
+  - role_id: "holofuel"
+    uri: { path: "./holofuel.dna" }
+    properties:
+      holo_agent_override: "uhCAkRHEsXSAebzKJtPsLY1XcNePAFIieFBtz2ATanlokxnSC1Kkz"
+      skip_proof: true
+testSettings:
+  conductorsPerHoloport: 1
+  agentsPerConductor: 3 # SL Context: Number of SL Instances (ie: the number of hosted happs installed on a holoport)
+appTestSettings:
+  fractionOffline: 0.5
+  numTransactions: 2
+  # promisesPerAgentPerPeer is used in the holofuel concurrent agent test. It's the number of promises sent from each agent to each peer.
+  promisesPerAgentPerPeer: 1

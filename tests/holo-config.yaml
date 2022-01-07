@@ -1,0 +1,19 @@
+--- # Test configuration
+holoportChannel: "develop"
+# disableSsh: true
+holoports: # list of holoports participating in test
+  # - name: "rkbpxayrx3b9mrslvp26oz88rw36wzltxaklm00czl5u5mx1w"
+  #   zerotierIp: "172.26.235.20"
+  #   error: false
+  #   errorMessage: null
+  #   timeToGossip: null
+  # - name: "3mxb6dep80b24vwpdkyas7l8s7jg373d27kbbi61tavegtlfv0"
+  #   zerotierIp: "172.26.14.210"
+  #   error: false
+  #   errorMessage: null
+  #   timeToGossip: null
+  - name: "2dbk737jjs2vyc1z0w72tmc0i7loprr8tbq6f1yevpms4msytn"
+    zerotierIp: "172.26.201.57"
+    error: false
+    errorMessage: null
+    timeToGossip: null

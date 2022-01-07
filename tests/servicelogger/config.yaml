@@ -1,0 +1,18 @@
+--- # Test configuration
+dnas:
+  # Note: It's possible to pass { url: '...' } instead of { path: '...' } for uri.
+  - role_id: "servicelogger"
+    uri:
+      {
+        url: "https://holo-host.github.io/servicelogger-rsm/releases/downloads/0_1_0_alpha13/servicelogger.0_1_0_alpha13.dna",
+      }
+    properties:
+      bound_happ_id: "uhC0kmrkoAHPVf_eufG7eC5fm6QKrW5pPMoktvG5LOC0SnJ4vV1Uv"
+testSettings:
+  conductorsPerHoloport: 1
+  agentsPerConductor: 3 # SL Context: Number of SL Instances (ie: the number of hosted happs installed on a holoport)
+appTestSettings:
+  # intervals and duration calculated in ms
+  activityLoggingInterval: 150 # call once every 5 sec (Note for testing: a call once every 150ms will make 2000 calls within 5min)
+  diskUsageLoggingInterval: 60000 # call once every 1 min (currently this call is set to occur x1/min in envoy)
+  testDuration: 300000 # 300_000 = 5 mins
