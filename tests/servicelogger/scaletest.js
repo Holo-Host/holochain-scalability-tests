@@ -41,8 +41,12 @@ describe('Servicelogger DNA', async () => {
 
     const { agents: testHapps } = await installAgents(s, 'servicelogger')
     const signatoryHappIndices = []
+    let number_of_devices = 1
+    if ("holoports" in holo_cfg) {
+      number_of_devices = holo_cfg.holoports.length
+    }
     signatoryHapps = testHapps.filter((_, i) => {
-      if (i % (testHapps.length / holo_cfg.holoports.length) === 0) {
+      if (i % (testHapps.length / number_of_devices) === 0) {
         signatoryHappIndices.push(i)
         return true
       }
@@ -81,8 +85,11 @@ describe('Servicelogger DNA', async () => {
       const agentIdx = hostedHappSLs.indexOf(hostHapp)
       try {
         if (paramFnArgs === signatoryHapps) {
-          const hostIndex = Math.floor(agentIdx / (cfg.testSettings.agentsPerConductor * cfg.testSettings.conductorsPerHoloport))
-          paramFnArgs = signatoryHapps[hostIndex]
+          if (signatoryHapps.length > 1) {
+            const hostIndex = Math.floor(agentIdx / (cfg.testSettings.agentsPerConductor * cfg.testSettings.conductorsPerHoloport))
+            paramFnArgs = signatoryHapps[hostIndex]
+          }
+          paramFnArgs = signatoryHapps[0]
         }
         const params = await paramFn(paramFnArgs)
         await hostHapp.cells[0].call('service', zomeFnName, params)
@@ -94,6 +101,7 @@ describe('Servicelogger DNA', async () => {
         })
         console.log(`Completed ${zomeFnName.includes('activity') ? 'Activity' : 'Disk Usage'} Call: agent:${agentIdx} x count:${count}`)
       } catch (error) {
+        console.log(">>>>>>>>>>>>>>>>>", error);
         activityLogDuration = Math.floor(performance.now() - startTime)
         console.error(`Error: Failed to log ${zomeFnName.includes('activity') ? 'Activity' : 'Disk Usage'} call #${count} for agent #${agentIdx} (${encodeAgentHash(hostHapp.agent)}) : ${error}`)
         logList[encodeAgentHash(hostHapp.agent)].push({
