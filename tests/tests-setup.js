@@ -103,7 +103,7 @@ const defaultTryoramaNetworkConfig = {
  * @returns {object} - new test configuration
  */
 const resetHoloports = async holo_cfg => {
-  if (holo_cfg.disableSsh) {
+  if (holo_cfg.disableSsh || !("holoports" in holo_cfg)) {
     return
   }
   console.log(`\nResetting holoports participating in test`)
@@ -141,6 +141,9 @@ const holoportTest = cfg => {
 }
 
 exports.setUpHoloports = async () => {
+  if (!("holoports" in holo_cfg)) {
+    return
+  }
   holo_cfg = await resetHoloports(holo_cfg)
   console.log("Starting Configuration : ", holo_cfg)
   if (!holoportTest(holo_cfg))
@@ -150,7 +153,7 @@ exports.setUpHoloports = async () => {
 }
 
 exports.restartTrycp = async () => {
-  if (holo_cfg.disableSsh) {
+  if (holo_cfg.disableSsh || !("holoports" in holo_cfg)) {
     return
   }
   console.log(`\nRestarting trycp on holoports`)
@@ -164,26 +167,37 @@ exports.restartTrycp = async () => {
   )
   await new Promise(r => setTimeout(r, 1000));
 }
+const getConfig = (testNicks) => {
+  let configs
+  if (testNicks.includes('servicelogger')) {
+    // add signator conductor to each holoport when running servicelogger tests
+    console.log('Adding a servicelogger signing agent conductor to holoport')
+    configs = Array.from({ length: cfg.testSettings.conductorsPerHoloport + 1 }, () => // 1 more per each holoport in array
+      tryorama.Config.gen({ network: defaultTryoramaNetworkConfig })
+    )
+  } else {
+    configs = Array.from({ length: cfg.testSettings.conductorsPerHoloport }, () =>
+      tryorama.Config.gen({ network: defaultTryoramaNetworkConfig })
+    )
+  }
+  return configs
+}
 
 exports.installAgents = async (s, testNicks) => {
   console.log(`\nInstalling agents`)
   let configs
-  const playersPerHp = await Promise.all(
-    holo_cfg.holoports.map(hp => {
-      if (testNicks.includes('servicelogger')) {
-        // add signator conductor to each holoport when running servicelogger tests
-        console.log('Adding a servicelogger signing agent conductor to holoport:', hp.zerotierIp)
-        configs = Array.from({ length: cfg.testSettings.conductorsPerHoloport + 1 }, () => // 1 more per each holoport in array
-          tryorama.Config.gen({ network: defaultTryoramaNetworkConfig })
-        )
-      } else {
-        configs = Array.from({ length: cfg.testSettings.conductorsPerHoloport }, () =>
-          tryorama.Config.gen({ network: defaultTryoramaNetworkConfig })
-        )
-      }
-      return s.players(configs, true, `${hp.zerotierIp}:9000`)
-    })
-  )
+  let playersPerHp
+  if ("holoports" in holo_cfg) {
+    playersPerHp = await Promise.all(
+      holo_cfg.holoports.map(hp => {
+        configs = getConfig(testNicks)
+        return s.players(configs, true, `${hp.zerotierIp}:9000`)
+      })
+    )
+  }
+  else {
+    playersPerHp = await Promise.all([s.players(getConfig(testNicks), true)])
+  }
   const players = playersPerHp.flat()
 
   const happsPerPlayer = await Promise.all(
@@ -215,9 +229,11 @@ const installHappsForPlayer = async (
     if (testDnas.length === 0) {
       throw new Error('Failed to intall happ for test player - no DNA found with provided role_id.')
     }
-    // limit only one agent for the add'l SL signator conductors (one per holoport)
-    if (playerIdx % (holo_cfg.holoports.length * (cfg.testSettings.conductorsPerHoloport + 1) / holo_cfg.holoports.length) === 0 && testDnas.some(({ role_id }) => role_id === 'servicelogger')) {
-      count = 1
+    if ("holoports" in holo_cfg) {
+      // limit only one agent for the add'l SL signator conductors (one per holoport)
+      if (playerIdx % (holo_cfg.holoports.length * (cfg.testSettings.conductorsPerHoloport + 1) / holo_cfg.holoports.length) === 0 && testDnas.some(({ role_id }) => role_id === 'servicelogger')) {
+        count = 1
+      }
     }
   }
 
