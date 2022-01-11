@@ -59,8 +59,10 @@ describe('joining-code factory scale tests', async () => {
 
   it('can make a zome call to create mem-proofs', async () => {
     console.log("Running test...");
-    let completed = []
-    let failed = []
+    let completed_create = []
+    let failed_create = []
+    let completed_gets = []
+    let failed_gets = []
     let loops = 0
     const startTestTime = Date.now()
     do {
@@ -73,23 +75,41 @@ describe('joining-code factory scale tests', async () => {
           registered_agent: generateRandomPubKey()
         })
       }
-      let i_c = completed.length
-      let i_f = failed.length
+      let i_cc = completed_create.length
+      let i_fc = failed_create.length
       await Promise.all(
         payloads.map(async payload => {
           try {
             let r = await agents[0].cells[0].call('code-generator', 'make_proof', payload)
-            completed.push(r)
+            completed_create.push(r)
           } catch (e) {
-            failed.push(e)
+            failed_create.push(e)
           }
         })
       )
+      let i_cg = completed_gets.length
+      let i_fg = failed_gets.length
+      await Promise.all(
+        payloads.map(async payload => {
+          try {
+            let r = await agents[0].cells[0].call('code-generator', 'get_kyc_record', {
+              record_locator: payload.record_locator,
+              registered_agent: payload.registered_agent
+            })
+            completed_gets.push(r)
+          } catch (e) {
+            failed_gets.push(e)
+          }
+        })
+      )
+
       console.log("Running Loop: ", loops);
       console.table(
         {
-          'Completed Calls': completed.length - i_c,
-          'Failed Calls': failed.length - i_f,
+          'Completed Create Calls': completed_create.length - i_cc,
+          'Failed Create Calls': failed_create.length - i_fc,
+          'Completed Get Calls': completed_gets.length - i_cg,
+          'Failed Get Calls': failed_gets.length - i_fg,
         }
       )
     } while (Date.now() - startTestTime < (cfg.appTestSettings.testDuration - 100))
@@ -97,14 +117,16 @@ describe('joining-code factory scale tests', async () => {
     console.table(
       {
         '-': '-',
-        'Completed Calls': completed.length,
-        'Failed Calls': failed.length,
+        'Completed Create Calls': completed_create.length,
+        'Failed Create Calls': failed_create.length,
+        'Completed Get Calls': completed_gets.length,
+        'Failed Get Calls': failed_gets.length,
         '--': '--',
         'Number of Simultaneous Call loops': loops,
         'Test Ran for': `${cfg.appTestSettings.testDuration} ms`,
         '---': '---',
-        'Success %': (completed.length / (loops * cfg.appTestSettings.simultaneousCalls)) * 100,
-        'Failure %': (failed.length / (loops * cfg.appTestSettings.simultaneousCalls)) * 100,
+        'Success %': ((completed_create.length + completed_gets.length) / ((loops * cfg.appTestSettings.simultaneousCalls) * 2)) * 100,
+        'Failure %': ((failed_create.length + failed_gets.length) / ((loops * cfg.appTestSettings.simultaneousCalls) * 2)) * 100,
         '----': '----',
       }
     )
