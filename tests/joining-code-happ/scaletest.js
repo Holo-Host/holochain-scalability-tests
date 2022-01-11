@@ -64,7 +64,7 @@ describe('joining-code factory scale tests', async () => {
     let completed_gets = []
     let failed_gets = []
     let loops = 0
-    const startTestTime = Date.now()
+    const startTestTime = new Date()
     do {
       loops++
       let payloads = []
@@ -124,6 +124,8 @@ describe('joining-code factory scale tests', async () => {
         '--': '--',
         'Number of Simultaneous Call loops': loops,
         'Test Ran for': `${cfg.appTestSettings.testDuration} ms`,
+        'Start time': startTestTime.toISOString(),
+        'End time': new Date().toISOString(),
         '---': '---',
         'Success %': ((completed_create.length + completed_gets.length) / ((loops * cfg.appTestSettings.simultaneousCalls) * 2)) * 100,
         'Failure %': ((failed_create.length + failed_gets.length) / ((loops * cfg.appTestSettings.simultaneousCalls) * 2)) * 100,
