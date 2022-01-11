@@ -96,16 +96,16 @@ describe('joining-code factory scale tests', async () => {
 
     console.table(
       {
-        '---': '---',
+        '-': '-',
         'Completed Calls': completed.length,
         'Failed Calls': failed.length,
-        '---': '---',
-        'Number of Simultanus Call loops': loops,
+        '--': '--',
+        'Number of Simultaneous Call loops': loops,
         'Test Ran for': `${cfg.appTestSettings.testDuration} ms`,
         '---': '---',
         'Success %': (completed.length / (loops * cfg.appTestSettings.simultaneousCalls)) * 100,
         'Failure %': (failed.length / (loops * cfg.appTestSettings.simultaneousCalls)) * 100,
-        '---': '---',
+        '----': '----',
       }
     )
   })
