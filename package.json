@@ -9,7 +9,8 @@
   "scripts": {
     "test": "TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 mocha --timeout 0 --recursive tests",
     "test-holofuel": "TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 TEST_CONFIG='./tests/holofuel/config.yaml' mocha --timeout 0 --recursive tests/holofuel",
-    "test-servicelogger": "TRYORAMA_LOG_LEVEL=0 TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 TEST_CONFIG='./tests/servicelogger/config.yaml' mocha --timeout 0 --recursive tests/servicelogger"
+    "test-servicelogger": "TRYORAMA_LOG_LEVEL=0 TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 TEST_CONFIG='./tests/servicelogger/config.yaml' mocha --timeout 0 --recursive tests/servicelogger",
+    "test-jch": "TRYORAMA_LOG_LEVEL=0 TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 TEST_CONFIG='./tests/joining-code-happ/config.yaml' mocha --timeout 0 --recursive tests/joining-code-happ"
   },
   "devDependencies": {
     "@holo-host/cryptolib": "^0.3.0",
