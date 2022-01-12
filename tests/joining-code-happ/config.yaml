@@ -1,0 +1,18 @@
+--- # Test configuration
+dnas:
+  # Note: It's possible to pass { url: '...' } instead of { path: '...' } for uri.
+  - role_id: "joining_code_factory"
+    uri:
+      {
+        path: "/home/zo-el/Documents/GitRepo/Holo/joining-code-happ/joining-code-factory.dna",
+      }
+      #       {
+      #   url: "https://holo-host.github.io/joining-code-happ/releases/downloads/0_2_0_alpha3/joining-code-factory.0_2_0_alpha3.dna",
+      # }
+    properties: ~
+testSettings:
+  conductorsPerHoloport: 1
+  agentsPerConductor: 1
+appTestSettings:
+  simultaneousCalls: 50
+  testDuration: 30000 # 300_000 = 5 mins
