@@ -1,26 +1,26 @@
 {
-  "name": "nightly-network-test",
-  "version": "0.0.1",
-  "description": "Scripts and tests for nightly test of Holo Network",
-  "main": "index.js",
-  "repository": "https://github.com/Holo-Host/nightly-network-test.git",
-  "author": "peeech <pj@imagine-nyc.com>",
-  "license": "MIT",
-  "scripts": {
-    "test": "TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 mocha --timeout 0 --recursive tests",
-    "test-holofuel": "TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 TEST_CONFIG='./tests/holofuel/config.yaml' mocha --timeout 0 --recursive tests/holofuel",
-    "test-servicelogger": "TRYORAMA_LOG_LEVEL=0 TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 TEST_CONFIG='./tests/servicelogger/config.yaml' mocha --timeout 0 --recursive tests/servicelogger",
-    "test-jch": "TRYORAMA_LOG_LEVEL=0 TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 TEST_CONFIG='./tests/joining-code-happ/config.yaml' mocha --timeout 0 --recursive tests/joining-code-happ"
-  },
-  "devDependencies": {
-    "@holo-host/cryptolib": "^0.3.0",
-    "@holochain/tryorama": "^0.4.6",
-    "chai": "^4.3.4",
-    "lodash": "^4.17.21",
-    "mocha": "^9.0.2"
-  },
-  "dependencies": {
-    "tape": "^5.3.1",
-    "yaml": "^1.10.2"
-  }
+	"name": "nightly-network-test",
+	"version": "0.0.1",
+	"description": "Scripts and tests for nightly test of Holo Network",
+	"main": "index.js",
+	"repository": "https://github.com/Holo-Host/holochain-scalability-tests.git",
+	"author": "Joel U <joelulahanna@gmail.com>",
+	"license": "MIT",
+	"scripts": {
+		"test": "TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 mocha --timeout 0 --recursive tests",
+		"test-holofuel": "TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 TEST_CONFIG='./tests/holofuel/config.yaml' mocha --timeout 0 --recursive tests/holofuel",
+		"test-servicelogger": "TRYORAMA_LOG_LEVEL=0 TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 TEST_CONFIG='./tests/servicelogger/config.yaml' mocha --timeout 0 --recursive tests/servicelogger",
+		"test-jch": "TRYORAMA_LOG_LEVEL=0 TRYORAMA_CONDUCTOR_TIMEOUT_MS=4000000 TEST_CONFIG='./tests/joining-code-happ/config.yaml' mocha --timeout 0 --recursive tests/joining-code-happ"
+	},
+	"devDependencies": {
+		"@holo-host/cryptolib": "^0.3.0",
+		"@holochain/tryorama": "^0.4.6",
+		"chai": "^4.3.4",
+		"lodash": "^4.17.21",
+		"mocha": "^9.0.2"
+	},
+	"dependencies": {
+		"tape": "^5.3.1",
+		"yaml": "^1.10.2"
+	}
 }
