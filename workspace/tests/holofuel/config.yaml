@@ -1,0 +1,12 @@
+--- # Test configuration
+dnas:
+  - role_id: 'holofuel'
+    path: './dnas/holofuel.dna'
+testSettings:
+  conductorsPerHoloport: 1
+  agentsPerConductor: 3 # SL Context: Number of SL Instances (ie: the number of hosted happs installed on a holoport)
+appTestSettings:
+  fractionOffline: 0.5
+  numOfTransactions: 2
+  # promisesPerAgentPerPeer is used in the holofuel concurrent agent test. It's the number of promises sent from each agent to each peer.
+  promisesPerAgentPerPeer: 1
