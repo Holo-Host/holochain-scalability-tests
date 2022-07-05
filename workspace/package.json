@@ -7,7 +7,7 @@
 	"license": "MIT",
 	"type": "module",
 	"scripts": {
-		"test:holofuel": "node --loader ts-node/esm ./holofuel/index.ts"
+		"test:holofuel": "TEST_CONFIG=./tests/holofuel/config.yaml node --loader ts-node/esm ./tests/holofuel/index.ts"
 	},
 	"devDependencies": {
 		"@holo-host/cryptolib": "^0.3.2",
@@ -24,6 +24,7 @@
 		"@types/chai": "^4.3.1",
 		"@types/tape": "^4.13.2",
 		"@types/uuid": "^8.3.4",
+		"lodash": "^4.17.21",
 		"node-fetch": "2",
 		"uuid": "^8.3.2"
 	}

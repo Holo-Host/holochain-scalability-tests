@@ -1,18 +1,25 @@
 import test from 'tape-promise/tape.js'
-import { testSetup } from '../utils/trycp-helper.js'
-import { HOLOFUEL_DNA_PATH, SERVER_URL } from '../utils/const.js'
+import { testSetup } from '../common/trycp-helper.js'
+import { parseCfg, getListOfTryCPServers } from '../common/utils.js'
 import { getTimestamp } from './utils.js'
+import path from 'path'
 
 test('testing initial setup model', async (t) => {
+	// Setting up the mem-proof server
+
+	let { testSettings, dnas } = parseCfg()
 	let [
 		{
+			scenario,
 			config: [{ conductor, agentHapps }],
 		},
 	] = await testSetup({
-		listOfTryCPs: [SERVER_URL],
-		numberOfConductor: 1,
-		numberOfAgents: 1,
-		testDnaPath: HOLOFUEL_DNA_PATH,
+		listOfTryCPs: getListOfTryCPServers(),
+		numberOfConductor: testSettings.conductorsPerHoloport,
+		numberOfAgents: testSettings.agentsPerConductor,
+		testDnaPath: {
+			path: path.join(dnas[0].path),
+		},
 		properties: {
 			skip_proof: true,
 			// holo_agent_override: membraneProofGenerator?.agentPubKey,
@@ -45,4 +52,5 @@ test('testing initial setup model', async (t) => {
 
 	console.log('Result: ', result)
 	t.ok(result.id)
+	scenario.cleanUp()
 })

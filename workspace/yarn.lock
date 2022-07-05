@@ -52,8 +52,8 @@
     isomorphic-ws "^4.0.1"
     prettier "^2.6.2"
 
-"@holochain/tryorama@file:../../../../holochain/tryorama":
-  version "0.5.8"
+"@holochain/tryorama@file:../../../holochain/tryorama":
+  version "0.5.9"
   dependencies:
     "@holochain/client" "^0.4.1"
     get-port "^6.1.2"
